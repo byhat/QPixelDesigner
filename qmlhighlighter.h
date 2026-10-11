@@ -5,7 +5,7 @@
 #include <QTextCharFormat>
 #include <QVector>
 
-/** @brief Подсветка синтаксиса QML для редактора кода. */
+/** @brief QML syntax highlighting for the code editor. */
 class QmlHighlighter : public QSyntaxHighlighter
 {
     Q_OBJECT
@@ -16,7 +16,7 @@ protected:
     void highlightBlock(const QString &text) override;
 
 private:
-    /** @brief Правило подсветки: регулярное выражение и формат. */
+    /** @brief Highlighting rule: a regular expression and its format. */
     struct Rule {
         QRegularExpression re;
         QTextCharFormat fmt;

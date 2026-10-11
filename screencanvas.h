@@ -9,11 +9,11 @@
 #include "screenelement.h"
 
 /**
- * @brief Холст: экран, увеличенный в 1..24 раза, с видимой пиксельной сеткой.
+ * @brief Canvas: the screen scaled 1..24x with a visible pixel grid.
  *
- * Модель элементов принадлежит MainWindow и передаётся указателем. Поддерживает
- * множественное выделение (Shift+клик, рамка), перетаскивание, растяжение за
- * углы; элементы одной группы перемещаются вместе.
+ * The element model is owned by MainWindow and passed as a pointer.
+ * Supports multiple selection (Shift+click, rubber band), dragging and
+ * resizing by corner handles; elements of the same group move together.
  */
 class ScreenCanvas : public QWidget
 {
@@ -24,24 +24,24 @@ public:
     void setModel(std::vector<Element> *elements);
     void setScreenSize(int width, int height);
     void setBackgroundColor(const QColor &color);
-    void setZoom(int zoom); ///< виджет-пикселей на один пиксель экрана
+    void setZoom(int zoom); ///< widget pixels per screen pixel
     int zoom() const { return m_zoom; }
     void setShowGrid(bool on);
 
-    void setSelection(const QSet<int> &sel); ///< заменить выделение на набор индексов
+    void setSelection(const QSet<int> &sel); ///< replace selection with model indices
     void clearSelection();
     const QSet<int> &selection() const { return m_sel; }
     int selectionCount() const { return m_sel.size(); }
-    int primaryIndex() const; ///< единственный выделенный элемент или -1
+    int primaryIndex() const; ///< the only selected element, or -1
 
-    void setExternalImage(const QImage &img); ///< рисовать кадр QML вместо модели
-    QImage renderScreenImage() const;         ///< рендер модели 1:1
+    void setExternalImage(const QImage &img); ///< draw a QML frame instead of the model
+    QImage renderScreenImage() const;         ///< 1:1 model render
 
     QSize sizeHint() const override;
 
 signals:
     void selectionChanged();
-    void modelChanged(); ///< модель изменена мышью
+    void modelChanged(); ///< model modified with the mouse
     void hoverChanged(const QPoint &screenPos);
     void zoomChanged(int zoom);
 
@@ -53,13 +53,13 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
 
 private:
-    /** @brief Активное действие мыши. */
+    /** @brief Active mouse action. */
     enum class Drag { None, Move, Resize, Rubber };
 
-    QPointF toScreen(const QPoint &widgetPos) const; ///< координаты виджета -> экрана
-    QRect widgetRect(const QRect &screenRect) const; ///< экрана -> виджета
-    int cornerAt(const QPoint &widgetPos) const;     ///< маска угла: 1=лево 2=верх 4=право 8=низ
-    std::vector<int> expandWithGroups(const QSet<int> &sel) const; ///< сел + члены их групп
+    QPointF toScreen(const QPoint &widgetPos) const;  ///< widget -> screen coordinates
+    QRect widgetRect(const QRect &screenRect) const;  ///< screen -> widget rectangle
+    int cornerAt(const QPoint &widgetPos) const;      ///< corner mask: 1=left 2=top 4=right 8=bottom
+    std::vector<int> expandWithGroups(const QSet<int> &sel) const; ///< selection plus group members
 
     std::vector<Element> *m_elements = nullptr;
     int m_screenW = 128;
@@ -68,9 +68,9 @@ private:
     int m_zoom = 4;
     bool m_showGrid = true;
 
-    QSet<int> m_sel;        ///< выделенные индексы модели
-    int m_primary = -1;     ///< индекс для панели свойств
-    QImage m_external;      ///< кадр QML-режима; null — рисовать модель
+    QSet<int> m_sel;    ///< selected model indices
+    int m_primary = -1; ///< index used by the properties panel
+    QImage m_external;  ///< QML-mode frame; null renders the model
 
     Drag m_drag = Drag::None;
     int m_corner = 0;
@@ -81,5 +81,5 @@ private:
     QPointF m_pressScreen;
     bool m_dragMoved = false;
 
-    static constexpr int Margin = 24; ///< отступ экрана от краёв виджета, px
+    static constexpr int Margin = 24; ///< screen offset from widget edges, px
 };

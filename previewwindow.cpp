@@ -8,7 +8,7 @@ PreviewWindow::PreviewWindow(QWidget *parent)
 {
     setWindowFlag(Qt::WindowStaysOnTopHint, true);
     setAttribute(Qt::WA_QuitOnClose, false);
-    setWindowTitle(tr("Предпросмотр 1:1"));
+    setWindowTitle(tr("Preview 1:1"));
 }
 
 void PreviewWindow::setImage(const QImage &image)
@@ -16,7 +16,7 @@ void PreviewWindow::setImage(const QImage &image)
     m_image = image;
     if (!m_image.isNull())
         setFixedSize(m_image.size());
-    setWindowTitle(tr("Предпросмотр 1:1 — %1×%2 px")
+    setWindowTitle(tr("Preview 1:1 — %1x%2 px")
                        .arg(m_image.width()).arg(m_image.height()));
     update();
 }

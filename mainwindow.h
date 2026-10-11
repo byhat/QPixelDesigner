@@ -27,11 +27,11 @@ class QmlPane;
 class ScreenCanvas;
 
 /**
- * @brief Главное окно редактора.
+ * @brief The editor main window.
  *
- * Держит модель элементов, синхронизирует холст, список слоёв, панель
- * свойств и окно предпросмотра 1:1. Обслуживает два режима: раскладка
- * готовых элементов и редактирование QML-кода.
+ * Owns the element model and keeps the canvas, layer list, properties
+ * panel and the 1:1 preview in sync. Serves two modes: layout editing
+ * and QML code editing.
  */
 class MainWindow : public QMainWindow
 {
@@ -46,14 +46,14 @@ private slots:
     void addElement(ElementKind kind);
     void onSelectionChanged();
     void onModelChanged();
-    void applyProps();  ///< применить значения панели свойств к элементу
+    void applyProps();  ///< write properties panel values back to the element
     void onListReordered(const QModelIndex &parent, int start, int end,
                          const QModelIndex &dest, int row);
     void newProject();
     bool saveProject();
     void openProject();
     void exportPng();
-    void exportCArray(); ///< диалог генерации заголовка с RGB565-массивом
+    void exportCArray(); ///< RGB565 header generation dialog
     void chooseScreenPreset(int index);
     void setZoom(int zoom);
     void toggleGrid(bool on);
@@ -64,8 +64,8 @@ private slots:
     void duplicateSelected();
     void bringToFront();
     void sendToBack();
-    void raiseOne();  ///< поднять выделенные на один слой
-    void lowerOne();  ///< опустить выделенные на один слой
+    void raiseOne();  ///< raise the selection one layer
+    void lowerOne();  ///< lower the selection one layer
     void groupSelected();
     void ungroupSelected();
     void nudgeSelected(int dx, int dy);
@@ -81,37 +81,37 @@ private:
     void refreshView();
     void refreshTitle();
     void markDirty();
-    bool maybeSave(); ///< запрос сохранения при несохранённых изменениях
+    bool maybeSave(); ///< ask to save when there are unsaved changes
     void applyScreenSize(int width, int height);
-    void syncPresetCombo(); ///< выбрать в комбобоксе текущий размер экрана
-    void syncCounters();    ///< счётчики имён новых элементов по суффиксам
+    void syncPresetCombo(); ///< select the combo entry for the current screen size
+    void syncCounters();    ///< element-name counters, derived from name suffixes
     void setColorButton(QPushButton *button, const QColor &color);
-    void moveLayerStep(int dir); ///< сдвиг слоя на dir > 0 вверх, dir < 0 вниз
-    std::vector<int> selSorted() const;  ///< выделенные индексы по возрастанию
+    void moveLayerStep(int dir); ///< move layer up for dir > 0, down for dir < 0
+    std::vector<int> selSorted() const;  ///< selected indices, ascending
     int maxGroupId() const;
     static QString itemText(const Element &e);
     static QIcon iconFor(const Element &e);
 
-    std::vector<Element> m_elements; ///< модель макета
+    std::vector<Element> m_elements; ///< layout model
     int m_screenW = 128;
     int m_screenH = 160;
     QColor m_bgColor = Qt::white;
     bool m_dirty = false;
     QString m_filePath;
-    int m_counters[4] = {0, 0, 0, 0}; ///< счётчики имён по типам элементов
-    QImage m_lastRender;              ///< последний кадр (экспорт, пипетка)
-    bool m_updating = false;          ///< защита от циклов синхронизации
+    int m_counters[4] = {0, 0, 0, 0}; ///< name counters per element kind
+    QImage m_lastRender;              ///< latest frame (export, color picker)
+    bool m_updating = false;          ///< re-entrancy guard for UI sync
 
     ScreenCanvas *m_canvas = nullptr;
     PreviewWindow *m_preview = nullptr;
-    QListWidget *m_list = nullptr;      ///< список слоёв
-    QComboBox *m_presetCombo = nullptr; ///< пресеты размеров экрана
+    QListWidget *m_list = nullptr;      ///< layer list
+    QComboBox *m_presetCombo = nullptr; ///< screen size presets
     QSpinBox *m_zoomSpin = nullptr;
     QPushButton *m_bgBtn = nullptr;
     QAction *m_gridAct = nullptr;
     QAction *m_previewAct = nullptr;
-    QDockWidget *m_elemDock = nullptr;  ///< слои + свойства
-    QList<QAction *> m_elementActs;     ///< кнопки добавления элементов
+    QDockWidget *m_elemDock = nullptr;  ///< layers + properties
+    QList<QAction *> m_elementActs;     ///< add-element toolbar actions
 
     QmlPane *m_qmlPane = nullptr;
     QDockWidget *m_qmlDock = nullptr;
@@ -122,8 +122,8 @@ private:
     QLineEdit *m_nameEdit = nullptr;
     QSpinBox *m_px = nullptr;
     QSpinBox *m_py = nullptr;
-    QSpinBox *m_pw = nullptr; ///< ширина; для Line — x2
-    QSpinBox *m_ph = nullptr; ///< высота; для Line — y2
+    QSpinBox *m_pw = nullptr; ///< width; x2 for Line
+    QSpinBox *m_ph = nullptr; ///< height; y2 for Line
     QSpinBox *m_radiusSpin = nullptr;
     QLineEdit *m_textEdit = nullptr;
     QSpinBox *m_fontSpin = nullptr;
@@ -138,6 +138,6 @@ private:
     QLabel *m_lblFill = nullptr;
     QLabel *m_lblStroke = nullptr;
 
-    QLabel *m_posLabel = nullptr;  ///< координаты и цвет пикселя под курсором
-    QLabel *m_sizeLabel = nullptr; ///< размер экрана
+    QLabel *m_posLabel = nullptr;  ///< cursor position and pixel color
+    QLabel *m_sizeLabel = nullptr; ///< screen size
 };

@@ -11,22 +11,23 @@ class QQmlEngine;
 class QPlainTextEdit;
 class QQuickWidget;
 
-/** @brief Исходный текст демонстрационной QML-сцены. */
+/** @brief Source text of the demo QML scene. */
 QString qmlDemoSource();
 
-/** @brief Пост-обработка захваченного кадра QML. */
+/** @brief Post-processing applied to captured QML frames. */
 enum class FrameSnap {
-    GrayToBw,  ///< серые пиксели -> чёрный/белый, цвета сохраняются
-    Mono1Bit,  ///< весь кадр в 1 бит (эмуляция монохромного дисплея)
-    Off        ///< кадр без изменений
+    GrayToBw,  ///< gray pixels -> black/white, colors preserved
+    Mono1Bit,  ///< whole frame to 1 bit (monochrome display emulation)
+    Off        ///< frame unchanged
 };
 
 /**
- * @brief Панель QML-режима: редактор кода и живой предпросмотр сцены.
+ * @brief QML-mode panel: a code editor with a live scene preview.
  *
- * Код пишется во временный файл и по таймеру или F5 перезагружается в
- * QQuickWidget размером с экран; захваченный кадр отдаётся сигналом
- * frameUpdated(). Ошибки компиляции и предупреждения QML попадают в лог.
+ * The code is written to a temporary file and reloaded into a QQuickWidget
+ * sized to the screen, either debounced while typing or on F5; the captured
+ * frame is emitted via frameUpdated(). Compilation errors and QML warnings
+ * go to the log.
  */
 class QmlPane : public QWidget
 {
@@ -35,17 +36,17 @@ public:
     explicit QmlPane(QWidget *parent = nullptr);
 
     void setScreenSize(int width, int height);
-    void setSourceText(const QString &code); ///< задать текст и перезагрузить сцену
+    void setSourceText(const QString &code); ///< set the text and reload the scene
     QString source() const;
     QString logText() const;
     QImage lastFrame() const { return m_lastFrame; }
 
 signals:
-    void frameUpdated(const QImage &image); ///< новый кадр после фильтрации
+    void frameUpdated(const QImage &image); ///< new frame after post-processing
     void sourceEdited();
 
 public slots:
-    void reloadNow(); ///< записать код во временный файл и перезагрузить сцену
+    void reloadNow(); ///< write the code to a temp file and reload the scene
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -57,12 +58,12 @@ private:
     QPlainTextEdit *m_log = nullptr;
     QQuickWidget *m_quick = nullptr;
     QQmlEngine *m_engine = nullptr;
-    QComboBox *m_snapCombo = nullptr; ///< выбор режима FrameSnap
-    QTimer m_debounce;                ///< задержка автоперезагрузки при наборе
-    QTimer m_grabTimer;               ///< периодический захват кадра
+    QComboBox *m_snapCombo = nullptr; ///< FrameSnap mode selector
+    QTimer m_debounce;                ///< typing-to-reload delay
+    QTimer m_grabTimer;               ///< periodic frame capture
     QTemporaryDir m_tempDir;
     QImage m_lastFrame;
     int m_w = 128;
     int m_h = 160;
-    bool m_loading = false; ///< программное изменение редактора, не пользователя
+    bool m_loading = false; ///< programmatic editor change, not user input
 };

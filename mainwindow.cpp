@@ -64,7 +64,7 @@ void MainWindow::buildUi()
     scroll->setAlignment(Qt::AlignCenter);
     setCentralWidget(scroll);
 
-    QToolBar *tb = addToolBar(tr("Основная"));
+    QToolBar *tb = addToolBar(tr("Main"));
     tb->setMovable(false);
 
     m_presetCombo = new QComboBox;
@@ -72,13 +72,13 @@ void MainWindow::buildUi()
                              QStringLiteral("160 × 128"),
                              QStringLiteral("128 × 64 (SSD1306)"),
                              QStringLiteral("320 × 240 (ILI9341)"),
-                             tr("Другой размер…")});
+                             tr("Custom size…")});
     connect(m_presetCombo, &QComboBox::activated, this, &MainWindow::chooseScreenPreset);
     tb->addWidget(m_presetCombo);
 
-    m_bgBtn = new QPushButton(tr("Фон…"));
+    m_bgBtn = new QPushButton(tr("Background…"));
     connect(m_bgBtn, &QPushButton::clicked, this, [this] {
-        const QColor c = QColorDialog::getColor(m_bgColor, this, tr("Цвет фона экрана"));
+        const QColor c = QColorDialog::getColor(m_bgColor, this, tr("Screen background color"));
         if (!c.isValid())
             return;
         m_bgColor = c;
@@ -90,20 +90,20 @@ void MainWindow::buildUi()
     tb->addWidget(m_bgBtn);
 
     tb->addSeparator();
-    tb->addWidget(new QLabel(tr("Масштаб:")));
+    tb->addWidget(new QLabel(tr("Zoom:")));
     m_zoomSpin = new QSpinBox;
     m_zoomSpin->setRange(1, 24);
     m_zoomSpin->setValue(m_canvas->zoom());
     connect(m_zoomSpin, &QSpinBox::valueChanged, this, &MainWindow::setZoom);
     tb->addWidget(m_zoomSpin);
 
-    m_gridAct = new QAction(tr("Сетка"), this);
+    m_gridAct = new QAction(tr("Grid"), this);
     m_gridAct->setCheckable(true);
     m_gridAct->setChecked(true);
     connect(m_gridAct, &QAction::toggled, this, &MainWindow::toggleGrid);
     tb->addAction(m_gridAct);
 
-    m_previewAct = new QAction(tr("Предпросмотр 1:1"), this);
+    m_previewAct = new QAction(tr("Preview 1:1"), this);
     m_previewAct->setCheckable(true);
     m_previewAct->setChecked(true);
     connect(m_previewAct, &QAction::toggled, this, &MainWindow::togglePreview);
@@ -111,10 +111,10 @@ void MainWindow::buildUi()
 
     tb->addSeparator();
     const QList<QPair<QString, ElementKind>> adds = {
-        {tr("＋ Прямоугольник"), ElementKind::Rect},
-        {tr("＋ Эллипс"), ElementKind::Ellipse},
-        {tr("＋ Линия"), ElementKind::Line},
-        {tr("＋ Текст"), ElementKind::Text},
+        {tr("+ Rectangle"), ElementKind::Rect},
+        {tr("+ Ellipse"), ElementKind::Ellipse},
+        {tr("+ Line"), ElementKind::Line},
+        {tr("+ Text"), ElementKind::Text},
     };
     for (const auto &a : adds) {
         auto *act = new QAction(a.first, this);
@@ -125,31 +125,31 @@ void MainWindow::buildUi()
     }
 
     tb->addSeparator();
-    m_qmlModeAct = new QAction(tr("QML-режим"), this);
+    m_qmlModeAct = new QAction(tr("QML mode"), this);
     m_qmlModeAct->setCheckable(true);
     m_qmlModeAct->setToolTip(
-        tr("Писать QML как в IDE и сразу видеть результат на пиксельном экране"));
+        tr("Write QML in an IDE-like editor and see the result on the pixel screen"));
     connect(m_qmlModeAct, &QAction::toggled, this, &MainWindow::setQmlMode);
     tb->addAction(m_qmlModeAct);
 
     tb->addSeparator();
-    auto *aNew = new QAction(tr("Новый"), this);
+    auto *aNew = new QAction(tr("New"), this);
     connect(aNew, &QAction::triggered, this, &MainWindow::newProject);
     tb->addAction(aNew);
-    auto *aOpen = new QAction(tr("Открыть…"), this);
+    auto *aOpen = new QAction(tr("Open…"), this);
     connect(aOpen, &QAction::triggered, this, &MainWindow::openProject);
     tb->addAction(aOpen);
-    auto *aSave = new QAction(tr("Сохранить…"), this);
+    auto *aSave = new QAction(tr("Save…"), this);
     connect(aSave, &QAction::triggered, this, [this] { saveProject(); });
     tb->addAction(aSave);
-    auto *aPng = new QAction(tr("Экспорт PNG"), this);
+    auto *aPng = new QAction(tr("Export PNG"), this);
     connect(aPng, &QAction::triggered, this, &MainWindow::exportPng);
     tb->addAction(aPng);
-    auto *aC = new QAction(tr("C-массив RGB565…"), this);
+    auto *aC = new QAction(tr("RGB565 C array…"), this);
     connect(aC, &QAction::triggered, this, &MainWindow::exportCArray);
     tb->addAction(aC);
 
-    auto *dock = new QDockWidget(tr("Слои и свойства"), this);
+    auto *dock = new QDockWidget(tr("Layers and properties"), this);
     dock->setFeatures(QDockWidget::DockWidgetMovable);
     auto *panel = new QWidget;
     auto *panelLay = new QVBoxLayout(panel);
@@ -173,14 +173,14 @@ void MainWindow::buildUi()
     panelLay->addWidget(m_list, 1);
 
     auto *layerRow = new QHBoxLayout;
-    auto *bUp = new QPushButton(tr("Слой ↑"));
-    auto *bDown = new QPushButton(tr("Слой ↓"));
-    auto *bGroup = new QPushButton(tr("Группа"));
-    auto *bUngroup = new QPushButton(tr("Разгр."));
-    bUp->setToolTip(tr("Поднять выделенные на слой вверх (PgUp)"));
-    bDown->setToolTip(tr("Опустить выделенные на слой вниз (PgDn)"));
-    bGroup->setToolTip(tr("Сгруппировать выделенные (Ctrl+G): двигаются вместе"));
-    bUngroup->setToolTip(tr("Разгруппировать (Ctrl+Shift+G)"));
+    auto *bUp = new QPushButton(tr("Up"));
+    auto *bDown = new QPushButton(tr("Down"));
+    auto *bGroup = new QPushButton(tr("Group"));
+    auto *bUngroup = new QPushButton(tr("Ungroup"));
+    bUp->setToolTip(tr("Raise selection one layer up (PgUp)"));
+    bDown->setToolTip(tr("Lower selection one layer down (PgDn)"));
+    bGroup->setToolTip(tr("Group selection (Ctrl+G): elements move together"));
+    bUngroup->setToolTip(tr("Ungroup (Ctrl+Shift+G)"));
     connect(bUp, &QPushButton::clicked, this, &MainWindow::raiseOne);
     connect(bDown, &QPushButton::clicked, this, &MainWindow::lowerOne);
     connect(bGroup, &QPushButton::clicked, this, &MainWindow::groupSelected);
@@ -191,11 +191,11 @@ void MainWindow::buildUi()
     layerRow->addWidget(bUngroup);
     panelLay->addLayout(layerRow);
 
-    m_propsBox = new QGroupBox(tr("Свойства"));
+    m_propsBox = new QGroupBox(tr("Properties"));
     auto *grid = new QGridLayout(m_propsBox);
     int row = 0;
 
-    auto *lblName = new QLabel(tr("Имя:"));
+    auto *lblName = new QLabel(tr("Name:"));
     m_nameEdit = new QLineEdit;
     grid->addWidget(lblName, row, 0);
     grid->addWidget(m_nameEdit, row, 1);
@@ -213,52 +213,52 @@ void MainWindow::buildUi()
     grid->addWidget(m_py, row, 1);
     ++row;
 
-    m_lblW = new QLabel(tr("Ширина:"));
+    m_lblW = new QLabel(tr("Width:"));
     m_pw = new QSpinBox;
     m_pw->setRange(1, 4096);
     grid->addWidget(m_lblW, row, 0);
     grid->addWidget(m_pw, row, 1);
     ++row;
 
-    m_lblH = new QLabel(tr("Высота:"));
+    m_lblH = new QLabel(tr("Height:"));
     m_ph = new QSpinBox;
     m_ph->setRange(1, 4096);
     grid->addWidget(m_lblH, row, 0);
     grid->addWidget(m_ph, row, 1);
     ++row;
 
-    m_lblRadius = new QLabel(tr("Скругление:"));
+    m_lblRadius = new QLabel(tr("Corner radius:"));
     m_radiusSpin = new QSpinBox;
     m_radiusSpin->setRange(0, 500);
-    m_radiusSpin->setToolTip(tr("Радиус скругления углов прямоугольника, в пикселях экрана"));
+    m_radiusSpin->setToolTip(tr("Rectangle corner radius, in screen pixels"));
     grid->addWidget(m_lblRadius, row, 0);
     grid->addWidget(m_radiusSpin, row, 1);
     ++row;
 
-    m_lblText = new QLabel(tr("Текст:"));
+    m_lblText = new QLabel(tr("Text:"));
     m_textEdit = new QLineEdit;
     grid->addWidget(m_lblText, row, 0);
     grid->addWidget(m_textEdit, row, 1);
     ++row;
 
-    m_lblFont = new QLabel(tr("Размер шрифта:"));
+    m_lblFont = new QLabel(tr("Font size:"));
     m_fontSpin = new QSpinBox;
     m_fontSpin->setRange(4, 96);
     grid->addWidget(m_lblFont, row, 0);
     grid->addWidget(m_fontSpin, row, 1);
     ++row;
 
-    m_filledCheck = new QCheckBox(tr("Заливка (иначе только контур)"));
+    m_filledCheck = new QCheckBox(tr("Filled (otherwise outline only)"));
     grid->addWidget(m_filledCheck, row, 0, 1, 2);
     ++row;
 
-    m_lblFill = new QLabel(tr("Цвет заливки:"));
+    m_lblFill = new QLabel(tr("Fill color:"));
     m_fillBtn = new QPushButton;
     grid->addWidget(m_lblFill, row, 0);
     grid->addWidget(m_fillBtn, row, 1);
     ++row;
 
-    m_lblStroke = new QLabel(tr("Цвет контура:"));
+    m_lblStroke = new QLabel(tr("Outline color:"));
     m_strokeBtn = new QPushButton;
     grid->addWidget(m_lblStroke, row, 0);
     grid->addWidget(m_strokeBtn, row, 1);
@@ -275,7 +275,7 @@ void MainWindow::buildUi()
     connect(m_qmlPane, &QmlPane::frameUpdated, this, &MainWindow::onQmlFrame);
     connect(m_qmlPane, &QmlPane::sourceEdited, this, &MainWindow::markDirty);
 
-    m_qmlDock = new QDockWidget(tr("QML-редактор"), this);
+    m_qmlDock = new QDockWidget(tr("QML editor"), this);
     m_qmlDock->setWidget(m_qmlPane);
     addDockWidget(Qt::LeftDockWidgetArea, m_qmlDock);
     m_qmlDock->hide();
@@ -296,11 +296,11 @@ void MainWindow::buildUi()
     connect(m_canvas, &ScreenCanvas::modelChanged, this, &MainWindow::onModelChanged);
     connect(m_canvas, &ScreenCanvas::zoomChanged, this, &MainWindow::setZoom);
     connect(m_canvas, &ScreenCanvas::hoverChanged, this, [this](const QPoint &p) {
-        QString s = tr("вне экрана");
+        QString s = tr("off-screen");
         if (p.x() >= 0 && p.x() < m_screenW && p.y() >= 0 && p.y() < m_screenH) {
             if (m_lastRender.size() == QSize(m_screenW, m_screenH)) {
                 const QColor c(m_lastRender.pixel(p.x(), p.y()));
-                s = tr("x: %1  y: %2  цвет: %3").arg(p.x()).arg(p.y()).arg(c.name().toUpper());
+                s = tr("x: %1  y: %2  color: %3").arg(p.x()).arg(p.y()).arg(c.name().toUpper());
             } else {
                 s = tr("x: %1  y: %2").arg(p.x()).arg(p.y());
             }
@@ -313,16 +313,16 @@ void MainWindow::buildUi()
         if (m_canvas->selectionCount() == 0)
             return;
         QMenu menu;
-        menu.addAction(tr("На передний план"), this, &MainWindow::bringToFront);
-        menu.addAction(tr("На слой вверх"), this, &MainWindow::raiseOne);
-        menu.addAction(tr("На слой вниз"), this, &MainWindow::lowerOne);
-        menu.addAction(tr("На задний план"), this, &MainWindow::sendToBack);
+        menu.addAction(tr("Bring to front"), this, &MainWindow::bringToFront);
+        menu.addAction(tr("Raise one layer"), this, &MainWindow::raiseOne);
+        menu.addAction(tr("Lower one layer"), this, &MainWindow::lowerOne);
+        menu.addAction(tr("Send to back"), this, &MainWindow::sendToBack);
         menu.addSeparator();
-        menu.addAction(tr("Сгруппировать"), this, &MainWindow::groupSelected);
-        menu.addAction(tr("Разгруппировать"), this, &MainWindow::ungroupSelected);
+        menu.addAction(tr("Group"), this, &MainWindow::groupSelected);
+        menu.addAction(tr("Ungroup"), this, &MainWindow::ungroupSelected);
         menu.addSeparator();
-        menu.addAction(tr("Дублировать"), this, &MainWindow::duplicateSelected);
-        menu.addAction(tr("Удалить"), this, &MainWindow::deleteSelected);
+        menu.addAction(tr("Duplicate"), this, &MainWindow::duplicateSelected);
+        menu.addAction(tr("Delete"), this, &MainWindow::deleteSelected);
         menu.exec(m_canvas->mapToGlobal(pos));
     });
 
@@ -353,11 +353,11 @@ void MainWindow::buildUi()
     addShortcut(QStringLiteral("Shift+Up"), [this] { nudgeSelected(0, -5); });
     addShortcut(QStringLiteral("Shift+Down"), [this] { nudgeSelected(0, 5); });
 
-    m_posLabel = new QLabel(tr("x: —  y: —"));
+    m_posLabel = new QLabel(QStringLiteral("x: —  y: —"));
     m_sizeLabel = new QLabel;
     statusBar()->addWidget(m_posLabel);
     statusBar()->addPermanentWidget(m_sizeLabel);
-    m_sizeLabel->setText(tr("Экран: %1×%2 px").arg(m_screenW).arg(m_screenH));
+    m_sizeLabel->setText(tr("Screen: %1x%2 px").arg(m_screenW).arg(m_screenH));
 
     setColorButton(m_bgBtn, m_bgColor);
     syncPresetCombo();
@@ -368,7 +368,7 @@ void MainWindow::loadDemo()
     m_elements.clear();
 
     Element title(ElementKind::Text, QRect(6, 6, 10, 10), QStringLiteral("title"));
-    title.text = tr("ТЕРМОСТАТ");
+    title.text = QStringLiteral("THERMOSTAT");
     title.fontSize = 11;
 
     Element divider(ElementKind::Line, QRect(6, 22, 116, 0), QStringLiteral("divider"));
@@ -378,7 +378,7 @@ void MainWindow::loadDemo()
     item1.radius = 4;
     item1.group = 1;
     Element item1Text(ElementKind::Text, QRect(12, 34, 10, 10), QStringLiteral("item1_text"));
-    item1Text.text = tr("1. Главная");
+    item1Text.text = QStringLiteral("1. Home");
     item1Text.fontSize = 10;
     item1Text.group = 1;
 
@@ -387,7 +387,7 @@ void MainWindow::loadDemo()
     item2.radius = 4;
     item2.group = 2;
     Element item2Text(ElementKind::Text, QRect(12, 58, 10, 10), QStringLiteral("item2_text"));
-    item2Text.text = tr("2. Настройки");
+    item2Text.text = QStringLiteral("2. Settings");
     item2Text.fontSize = 10;
     item2Text.group = 2;
 
@@ -458,7 +458,7 @@ void MainWindow::addElement(ElementKind kind)
         break;
     case ElementKind::Text:
         e.rect = QRect(8, 8, 10, 10);
-        e.text = tr("Текст");
+        e.text = tr("Text");
         e.fontSize = 12;
         break;
     }
@@ -753,8 +753,8 @@ void MainWindow::refreshProps()
     const int n = m_canvas->selectionCount();
     const int i = n == 1 ? m_canvas->primaryIndex() : -1;
     m_propsBox->setEnabled(n == 1);
-    m_propsBox->setTitle(n == 1 ? tr("Свойства")
-                                : tr("Свойства (выделено: %1)").arg(n));
+    m_propsBox->setTitle(n == 1 ? tr("Properties")
+                                : tr("Properties (selected: %1)").arg(n));
     if (i < 0) {
         m_updating = false;
         return;
@@ -774,8 +774,8 @@ void MainWindow::refreshProps()
         m_pw->setValue(e.rect.right());
         m_ph->setValue(e.rect.bottom());
     } else {
-        m_lblW->setText(tr("Ширина:"));
-        m_lblH->setText(tr("Высота:"));
+        m_lblW->setText(tr("Width:"));
+        m_lblH->setText(tr("Height:"));
         m_pw->setMinimum(1);
         m_pw->setMaximum(4096);
         m_ph->setMinimum(1);
@@ -804,12 +804,12 @@ void MainWindow::refreshProps()
 
     m_lblFill->setVisible(!isLine);
     m_fillBtn->setVisible(!isLine);
-    m_lblFill->setText(isText ? tr("Цвет текста:") : tr("Цвет заливки:"));
+    m_lblFill->setText(isText ? tr("Text color:") : tr("Fill color:"));
     setColorButton(m_fillBtn, e.fill);
 
     m_lblStroke->setVisible(!isText);
     m_strokeBtn->setVisible(!isText);
-    m_lblStroke->setText(isLine ? tr("Цвет линии:") : tr("Цвет контура:"));
+    m_lblStroke->setText(isLine ? tr("Line color:") : tr("Outline color:"));
     setColorButton(m_strokeBtn, e.stroke);
 
     m_lblW->setVisible(!isText);
@@ -885,7 +885,7 @@ void MainWindow::setQmlMode(bool on)
     if (on) {
         m_qmlPane->setScreenSize(m_screenW, m_screenH);
         m_canvas->setExternalImage(m_qmlPane->lastFrame());
-        statusBar()->showMessage(tr("QML-режим: правьте код слева, экран обновится сам"), 5000);
+        statusBar()->showMessage(tr("QML mode: edit the code on the left, the screen updates itself"), 5000);
     } else {
         m_canvas->setExternalImage(QImage());
         refreshView();
@@ -904,7 +904,7 @@ void MainWindow::onQmlFrame(const QImage &frame)
 
 void MainWindow::refreshTitle()
 {
-    const QString name = m_filePath.isEmpty() ? tr("без имени") : QFileInfo(m_filePath).fileName();
+    const QString name = m_filePath.isEmpty() ? tr("untitled") : QFileInfo(m_filePath).fileName();
     setWindowTitle(QStringLiteral("%1%2 — Pixel UI Designer")
                        .arg(m_dirty ? "*" : "", name));
 }
@@ -922,7 +922,7 @@ void MainWindow::applyScreenSize(int width, int height)
     m_screenH = height;
     m_canvas->setScreenSize(width, height);
     m_qmlPane->setScreenSize(width, height);
-    m_sizeLabel->setText(tr("Экран: %1×%2 px").arg(m_screenW).arg(m_screenH));
+    m_sizeLabel->setText(tr("Screen: %1x%2 px").arg(m_screenW).arg(m_screenH));
     syncPresetCombo();
 }
 
@@ -945,8 +945,8 @@ void MainWindow::chooseScreenPreset(int index)
     case 3: applyScreenSize(320, 240); break;
     case 4: {
         const QString txt = QInputDialog::getText(
-            this, tr("Свой размер экрана"),
-            tr("Формат ШИРИНАxВЫСОТА (например 128x160):"),
+            this, tr("Custom screen size"),
+            tr("Format WIDTHxHEIGHT (e.g. 128x160):"),
             QLineEdit::Normal, QString("%1x%2").arg(m_screenW).arg(m_screenH));
         if (!txt.isEmpty()) {
             static const QRegularExpression re("^\\s*(\\d{1,4})\\s*[xX×*]\\s*(\\d{1,4})\\s*$");
@@ -956,7 +956,7 @@ void MainWindow::chooseScreenPreset(int index)
                                 qBound(8, m.captured(2).toInt(), 2048));
             } else {
                 QMessageBox::warning(this, tr("Pixel UI Designer"),
-                                     tr("Не удалось разобрать размер: %1").arg(txt));
+                                     tr("Cannot parse size: %1").arg(txt));
             }
         }
         syncPresetCombo();
@@ -1010,7 +1010,7 @@ void MainWindow::pickFillColor()
     const int i = m_canvas->primaryIndex();
     if (i < 0 || i >= int(m_elements.size()))
         return;
-    const QColor c = QColorDialog::getColor(m_elements[i].fill, this, tr("Цвет заливки"));
+    const QColor c = QColorDialog::getColor(m_elements[i].fill, this, tr("Fill color"));
     if (!c.isValid())
         return;
     m_elements[i].fill = c;
@@ -1025,7 +1025,7 @@ void MainWindow::pickStrokeColor()
     const int i = m_canvas->primaryIndex();
     if (i < 0 || i >= int(m_elements.size()))
         return;
-    const QColor c = QColorDialog::getColor(m_elements[i].stroke, this, tr("Цвет контура"));
+    const QColor c = QColorDialog::getColor(m_elements[i].stroke, this, tr("Outline color"));
     if (!c.isValid())
         return;
     m_elements[i].stroke = c;
@@ -1052,7 +1052,7 @@ bool MainWindow::saveProject()
 {
     QString path = m_filePath;
     if (path.isEmpty()) {
-        path = QFileDialog::getSaveFileName(this, tr("Сохранить проект"),
+        path = QFileDialog::getSaveFileName(this, tr("Save project"),
                                             QStringLiteral("layout.pixui.json"),
                                             "Pixel UI (*.pixui.json)");
         if (path.isEmpty())
@@ -1080,7 +1080,7 @@ bool MainWindow::saveProject()
     QFile f(path);
     if (!f.open(QIODevice::WriteOnly)) {
         QMessageBox::warning(this, tr("Pixel UI Designer"),
-                             tr("Не удалось записать файл %1").arg(path));
+                             tr("Cannot write file %1").arg(path));
         return false;
     }
     f.write(QJsonDocument(root).toJson());
@@ -1097,21 +1097,21 @@ void MainWindow::openProject()
     if (!maybeSave())
         return;
     const QString path = QFileDialog::getOpenFileName(
-        this, tr("Открыть проект"), QString(), "Pixel UI (*.pixui.json *.json)");
+        this, tr("Open project"), QString(), "Pixel UI (*.pixui.json *.json)");
     if (path.isEmpty())
         return;
 
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) {
         QMessageBox::warning(this, tr("Pixel UI Designer"),
-                             tr("Не удалось открыть файл %1").arg(path));
+                             tr("Cannot open file %1").arg(path));
         return;
     }
     const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
     f.close();
     if (!doc.isObject()) {
         QMessageBox::warning(this, tr("Pixel UI Designer"),
-                             tr("Файл %1 не похож на проект Pixel UI").arg(path));
+                             tr("File %1 does not look like a Pixel UI project").arg(path));
         return;
     }
 
@@ -1179,7 +1179,7 @@ void MainWindow::newProject()
 
 void MainWindow::exportPng()
 {
-    QString path = QFileDialog::getSaveFileName(this, tr("Экспорт PNG"),
+    QString path = QFileDialog::getSaveFileName(this, tr("Export PNG"),
                                                 QStringLiteral("screen.png"), "PNG (*.png)");
     if (path.isEmpty())
         return;
@@ -1188,49 +1188,49 @@ void MainWindow::exportPng()
         m_lastRender = renderScreen(m_elements, m_screenW, m_screenH, m_bgColor);
     if (!m_lastRender.save(path))
         QMessageBox::warning(this, tr("Pixel UI Designer"),
-                             tr("Не удалось сохранить %1").arg(path));
+                             tr("Cannot save %1").arg(path));
 }
 
 void MainWindow::exportCArray()
 {
     QDialog dlg(this);
-    dlg.setWindowTitle(tr("C-массив RGB565"));
+    dlg.setWindowTitle(tr("RGB565 C array"));
     auto *grid = new QGridLayout(&dlg);
 
-    grid->addWidget(new QLabel(tr("Имя массива:")), 0, 0);
+    grid->addWidget(new QLabel(tr("Array name:")), 0, 0);
     auto *nameEdit = new QLineEdit(QStringLiteral("image_data"), &dlg);
     static const QRegularExpression idRe("^[A-Za-z_][A-Za-z0-9_]*$");
     nameEdit->setValidator(new QRegularExpressionValidator(idRe, &dlg));
     grid->addWidget(nameEdit, 0, 1, 1, 3);
 
-    grid->addWidget(new QLabel(tr("Контраст:")), 1, 0);
+    grid->addWidget(new QLabel(tr("Contrast:")), 1, 0);
     auto *contrast = new QDoubleSpinBox(&dlg);
     contrast->setRange(0.1, 5.0);
     contrast->setSingleStep(0.1);
     contrast->setValue(1.0);
     grid->addWidget(contrast, 1, 1);
-    grid->addWidget(new QLabel(tr("Насыщенность:")), 1, 2);
+    grid->addWidget(new QLabel(tr("Saturation:")), 1, 2);
     auto *saturation = new QDoubleSpinBox(&dlg);
     saturation->setRange(0.0, 5.0);
     saturation->setSingleStep(0.1);
     saturation->setValue(1.0);
     grid->addWidget(saturation, 1, 3);
 
-    grid->addWidget(new QLabel(tr("Яркость:")), 2, 0);
+    grid->addWidget(new QLabel(tr("Brightness:")), 2, 0);
     auto *brightness = new QSpinBox(&dlg);
     brightness->setRange(-255, 255);
-    brightness->setToolTip(tr("В ffmpeg это eq=brightness=-1..1 (доли полного диапазона)"));
+    brightness->setToolTip(tr("ffmpeg eq uses brightness=-1..1 as a fraction of the full range"));
     grid->addWidget(brightness, 2, 1);
-    grid->addWidget(new QLabel(tr("Порядок байт:")), 2, 2);
+    grid->addWidget(new QLabel(tr("Byte order:")), 2, 2);
     auto *order = new QComboBox(&dlg);
-    order->addItem(tr("big-endian (rgb565be)"));
-    order->addItem(tr("little-endian (rgb565le)"));
+    order->addItem(QStringLiteral("big-endian (rgb565be)"));
+    order->addItem(QStringLiteral("little-endian (rgb565le)"));
     grid->addWidget(order, 2, 3);
 
     auto *info = new QLabel(&dlg);
     grid->addWidget(info, 3, 0, 1, 4);
     auto updateInfo = [=] {
-        info->setText(tr("%1×%2 px → %3 байт")
+        info->setText(tr("%1x%2 px -> %3 bytes")
                           .arg(m_screenW).arg(m_screenH)
                           .arg(m_screenW * m_screenH * 2));
     };
@@ -1241,7 +1241,7 @@ void MainWindow::exportCArray()
     updateInfo();
 
     auto *bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
-    bb->button(QDialogButtonBox::Ok)->setText(tr("Сгенерировать…"));
+    bb->button(QDialogButtonBox::Ok)->setText(tr("Generate…"));
     connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
     grid->addWidget(bb, 4, 0, 1, 4);
@@ -1250,7 +1250,7 @@ void MainWindow::exportCArray()
         return;
 
     const QString path = withForcedSuffix(
-        QFileDialog::getSaveFileName(this, tr("Сохранить заголовок"),
+        QFileDialog::getSaveFileName(this, tr("Save header"),
                                      nameEdit->text() + QStringLiteral(".h"),
                                      QStringLiteral("C header (*.h)")),
         QStringLiteral(".h"));
@@ -1266,14 +1266,14 @@ void MainWindow::exportCArray()
     QFile f(path);
     if (!f.open(QIODevice::WriteOnly)) {
         QMessageBox::warning(this, tr("Pixel UI Designer"),
-                             tr("Не удалось записать файл %1").arg(path));
+                             tr("Cannot write file %1").arg(path));
         return;
     }
     f.write(toXxdHeader(bytes, nameEdit->text(), m_screenW, m_screenH,
                         order->currentIndex() == 0).toUtf8());
     f.close();
 
-    statusBar()->showMessage(tr("Сохранено: %1 (%2 байт)").arg(path).arg(bytes.size()), 5000);
+    statusBar()->showMessage(tr("Saved: %1 (%2 bytes)").arg(path).arg(bytes.size()), 5000);
 }
 
 
@@ -1282,7 +1282,7 @@ bool MainWindow::maybeSave()
     if (!m_dirty)
         return true;
     const auto ret = QMessageBox::warning(
-        this, tr("Pixel UI Designer"), tr("Проект был изменён. Сохранить изменения?"),
+        this, tr("Pixel UI Designer"), tr("The project has been modified. Save changes?"),
         QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
     if (ret == QMessageBox::Save)
         return saveProject();

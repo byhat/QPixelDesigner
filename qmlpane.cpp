@@ -26,7 +26,7 @@
 QString qmlDemoSource()
 {
     return QStringLiteral(
-        "// Координаты — в пикселях экрана.\n"
+        "// Coordinates are in screen pixels.\n"
         "import QtQuick\n"
         "\n"
         "Rectangle {\n"
@@ -34,7 +34,7 @@ QString qmlDemoSource()
         "\n"
         "    Text {\n"
         "        x: 6; y: 6\n"
-        "        text: \"ТЕРМОСТАТ\"\n"
+        "        text: \"THERMOSTAT\"\n"
         "        font.pixelSize: 11\n"
         "        color: \"#111111\"\n"
         "        renderType: Text.NativeRendering\n"
@@ -53,7 +53,7 @@ QString qmlDemoSource()
         "\n"
         "        Text {\n"
         "            x: 6; y: 5\n"
-        "            text: \"1. Главная\"\n"
+        "            text: \"1. Home\"\n"
         "            font.pixelSize: 10\n"
         "            renderType: Text.NativeRendering\n"
         "        }\n"
@@ -67,7 +67,7 @@ QString qmlDemoSource()
         "\n"
         "        Text {\n"
         "            x: 6; y: 5\n"
-        "            text: \"2. Настройки\"\n"
+        "            text: \"2. Settings\"\n"
         "            font.pixelSize: 10\n"
         "            renderType: Text.NativeRendering\n"
         "        }\n"
@@ -119,18 +119,18 @@ QmlPane::QmlPane(QWidget *parent)
     lay->setSpacing(4);
 
     auto *top = new QHBoxLayout;
-    auto *reloadBtn = new QPushButton(tr("Обновить (F5)"));
-    auto *autoCheck = new QCheckBox(tr("Авто"));
+    auto *reloadBtn = new QPushButton(tr("Reload (F5)"));
+    auto *autoCheck = new QCheckBox(tr("Auto"));
     autoCheck->setChecked(true);
-    autoCheck->setToolTip(tr("Перегружать сцену при наборе кода"));
-    auto *openBtn = new QPushButton(tr("Открыть…"));
-    auto *saveBtn = new QPushButton(tr("Сохранить…"));
+    autoCheck->setToolTip(tr("Reload the scene while typing"));
+    auto *openBtn = new QPushButton(tr("Open…"));
+    auto *saveBtn = new QPushButton(tr("Save…"));
     m_snapCombo = new QComboBox;
-    m_snapCombo->addItem(tr("Серый → ч/б (как на LCD)"));
-    m_snapCombo->addItem(tr("Полный 1-bit (монохром)"));
-    m_snapCombo->addItem(tr("Без обработки"));
-    m_snapCombo->setToolTip(tr("Сглаживание QML делает текст серым; порог превращает "
-                               "серые пиксели в чёрные/белые, цвета не трогает"));
+    m_snapCombo->addItem(tr("Gray -> B/W (LCD look)"));
+    m_snapCombo->addItem(tr("Full 1-bit (monochrome)"));
+    m_snapCombo->addItem(tr("No processing"));
+    m_snapCombo->setToolTip(tr("QML antialiasing renders small text in gray; "
+                               "the threshold turns gray pixels black/white and keeps colors"));
     top->addWidget(reloadBtn);
     top->addWidget(autoCheck);
     top->addWidget(m_snapCombo);
@@ -151,7 +151,7 @@ QmlPane::QmlPane(QWidget *parent)
     m_log->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     m_log->setReadOnly(true);
     m_log->setFixedHeight(80);
-    m_log->setPlaceholderText(tr("Ошибки и предупреждения QML появятся здесь"));
+    m_log->setPlaceholderText(tr("QML errors and warnings appear here"));
 
     split->addWidget(m_editor);
     split->addWidget(m_log);
@@ -211,7 +211,7 @@ QmlPane::QmlPane(QWidget *parent)
             reloadNow();
     });
     connect(openBtn, &QPushButton::clicked, this, [this] {
-        const QString path = QFileDialog::getOpenFileName(this, tr("Открыть QML"), QString(),
+        const QString path = QFileDialog::getOpenFileName(this, tr("Open QML"), QString(),
                                                           "QML (*.qml)");
         if (path.isEmpty())
             return;
@@ -221,7 +221,7 @@ QmlPane::QmlPane(QWidget *parent)
         setSourceText(QString::fromUtf8(f.readAll()));
     });
     connect(saveBtn, &QPushButton::clicked, this, [this] {
-        QString path = QFileDialog::getSaveFileName(this, tr("Сохранить QML"),
+        QString path = QFileDialog::getSaveFileName(this, tr("Save QML"),
                                                     QStringLiteral("scene.qml"), "QML (*.qml)");
         if (path.isEmpty())
             return;

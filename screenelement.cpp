@@ -21,10 +21,10 @@ QString kindToString(ElementKind kind)
 QString kindToLabel(ElementKind kind)
 {
     switch (kind) {
-    case ElementKind::Rect:    return QStringLiteral("прямоугольник");
-    case ElementKind::Ellipse: return QStringLiteral("эллипс");
-    case ElementKind::Line:    return QStringLiteral("линия");
-    case ElementKind::Text:    return QStringLiteral("текст");
+    case ElementKind::Rect:    return QStringLiteral("rectangle");
+    case ElementKind::Ellipse: return QStringLiteral("ellipse");
+    case ElementKind::Line:    return QStringLiteral("line");
+    case ElementKind::Text:    return QStringLiteral("text");
     }
     return QString();
 }

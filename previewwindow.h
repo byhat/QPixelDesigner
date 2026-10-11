@@ -4,7 +4,7 @@
 #include <QWidget>
 
 /**
- * @brief Окно предпросмотра 1:1: один пиксель монитора на один пиксель экрана.
+ * @brief 1:1 preview window: one monitor pixel per screen pixel.
  */
 class PreviewWindow : public QWidget
 {
@@ -15,7 +15,7 @@ public:
     void setImage(const QImage &image);
 
 signals:
-    void hidden(); ///< окно скрыто — снять галочку в тулбаре
+    void hidden(); ///< window hidden — untick the toolbar action
 
 protected:
     void paintEvent(QPaintEvent *event) override;
