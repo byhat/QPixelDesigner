@@ -1,0 +1,8 @@
+build/
+compile_commands.json
+*.user
+*.autosave
+.idea/
+.vscode/
+.cache/
+.DS_Store
