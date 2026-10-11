@@ -21,6 +21,7 @@ class QLineEdit;
 class QListWidget;
 class QPushButton;
 class QSpinBox;
+class QTabWidget;
 class QModelIndex;
 class PreviewWindow;
 class QmlPane;
@@ -102,7 +103,9 @@ private:
     QImage m_lastRender;              ///< latest frame (export, color picker)
     bool m_updating = false;          ///< re-entrancy guard for UI sync
 
-    ScreenCanvas *m_canvas = nullptr;
+    ScreenCanvas *m_canvas = nullptr;     ///< layout editing canvas
+    ScreenCanvas *m_qmlCanvas = nullptr;  ///< display-only canvas for QML frames
+    QTabWidget *m_centralTabs = nullptr;  ///< "Layout" and "QML screen" tabs
     PreviewWindow *m_preview = nullptr;
     QListWidget *m_list = nullptr;      ///< layer list
     QComboBox *m_presetCombo = nullptr; ///< screen size presets

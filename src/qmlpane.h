@@ -14,6 +14,7 @@ class QPlainTextEdit;
 class QQuickWidget;
 class QTabWidget;
 class QTreeView;
+class QrcUrlInterceptor;
 
 /** @brief Post-processing applied to captured QML frames. */
 enum class FrameSnap {
@@ -37,8 +38,10 @@ class QmlPane : public QWidget
     Q_OBJECT
 public:
     explicit QmlPane(QWidget *parent = nullptr);
+    ~QmlPane() override;
 
     void setScreenSize(int width, int height);
+    void setActive(bool active); ///< run/pause frame capture for this pane
 
     bool openProjectDir(const QString &dir, const QString &entry = QString());
     void loadDemoProject(); ///< two-file demo scene in a temporary directory
@@ -57,7 +60,6 @@ public slots:
     void reloadNow(); ///< save the active file and reload the scene
 
 protected:
-    bool eventFilter(QObject *watched, QEvent *event) override;
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dropEvent(QDropEvent *event) override;
 
@@ -69,6 +71,7 @@ private:
     void setEntry(const QString &relPath);
     void pickDefaultEntry();
     void updateEntryLabel();
+    void scanQrc(); ///< rebuild the qrc:/ -> file mapping from *.qrc files
     void newFile();
     void appendLog(const QString &line);
 
@@ -80,8 +83,9 @@ private:
     QFileSystemModel *m_fsModel = nullptr;
     QTabWidget *m_tabs = nullptr;
     QPlainTextEdit *m_log = nullptr;
-    QQuickWidget *m_quick = nullptr;
+    QQuickWidget *m_quick = nullptr; ///< hidden offscreen scene renderer
     QQmlEngine *m_engine = nullptr;
+    QrcUrlInterceptor *m_interceptor = nullptr;
     QComboBox *m_snapCombo = nullptr; ///< FrameSnap mode selector
     QLabel *m_entryLabel = nullptr;   ///< current entry file
     QTimer m_debounce;                ///< typing-to-autosave delay

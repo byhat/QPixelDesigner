@@ -1,18 +1,20 @@
 #include "qmlpane.h"
 
+#include "codeeditor.h"
 #include "qmlhighlighter.h"
 
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
+#include <QDirIterator>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QEvent>
 #include <QFile>
 #include <QFileDialog>
-#include <QFileInfo>
 #include <QFileSystemModel>
 #include <QFontDatabase>
+#include <QHash>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QInputDialog>
@@ -20,6 +22,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMimeData>
+#include <QPainter>
 #include <QQmlEngine>
 #include <QQmlError>
 #include <QPlainTextEdit>
@@ -34,6 +37,7 @@
 #include <QTreeView>
 #include <QUrl>
 #include <QVBoxLayout>
+#include <QXmlStreamReader>
 
 /** @brief Threshold frame processing: Qt Quick antialiasing renders small
  *  text as gray pixels that do not exist on a pixel display. GrayToBw
@@ -61,6 +65,33 @@ static QImage snapFrame(const QImage &src, FrameSnap mode)
     return out;
 }
 
+/**
+ * @brief Maps qrc:/ URLs to files of the project folder.
+ *
+ * Emulates Qt resource compilation: .qrc files of the project are parsed
+ * and "qrc:<prefix>/<alias>" URLs are rewritten to local file URLs, so the
+ * same source code runs both here and in the compiled project.
+ */
+class QrcUrlInterceptor : public QQmlAbstractUrlInterceptor
+{
+public:
+    void setMap(const QHash<QString, QString> &map) { m_map = map; }
+
+    QUrl intercept(const QUrl &url, DataType type) override
+    {
+        Q_UNUSED(type);
+        if (url.scheme() != QLatin1String("qrc"))
+            return url;
+        const auto it = m_map.constFind(url.path());
+        if (it != m_map.constEnd())
+            return QUrl::fromLocalFile(it.value());
+        return url;
+    }
+
+private:
+    QHash<QString, QString> m_map; ///< "/prefix/file" -> absolute file path
+};
+
 static const char *kDemoMain = R"QML(// Coordinates are in screen pixels.
 import QtQuick
 
@@ -73,6 +104,12 @@ Rectangle {
         font.pixelSize: 11
         color: "#111111"
         renderType: Text.NativeRendering
+    }
+
+    Image {
+        x: 104; y: 5
+        width: 18; height: 18
+        source: "qrc:/logo.png"
     }
 
     Rectangle { x: 6; y: 22; width: 116; height: 1; color: "#000000" }
@@ -119,10 +156,22 @@ Rectangle {
 }
 )QML";
 
+static const char *kDemoQrc = R"XML(<RCC>
+    <qresource prefix="/">
+        <file>logo.png</file>
+    </qresource>
+</RCC>
+)XML";
+
 QmlPane::QmlPane(QWidget *parent)
     : QWidget(parent)
 {
     buildUi();
+}
+
+QmlPane::~QmlPane()
+{
+    delete m_interceptor; // not owned by the engine
 }
 
 void QmlPane::buildUi()
@@ -146,18 +195,20 @@ void QmlPane::buildUi()
     m_snapCombo->addItem(tr("No processing"));
     m_snapCombo->setToolTip(tr("QML antialiasing renders small text in gray; "
                                "the threshold turns gray pixels black/white and keeps colors"));
+    m_entryLabel = new QLabel;
     top->addWidget(openBtn);
     top->addWidget(newBtn);
     top->addWidget(reloadBtn);
     top->addWidget(autoCheck);
     top->addWidget(m_snapCombo);
     top->addStretch(1);
+    top->addWidget(m_entryLabel);
     lay->addLayout(top);
 
     m_tree = new QTreeView;
     m_fsModel = new QFileSystemModel(this);
     m_fsModel->setFilter(QDir::Files | QDir::AllDirs | QDir::NoDotAndDotDot);
-    m_fsModel->setNameFilters({"*.qml", "qmldir"});
+    m_fsModel->setNameFilters({"*.qml", "qmldir", "*.qrc", "*.png", "*.jpg"});
     m_fsModel->setNameFilterDisables(false);
     m_tree->setModel(m_fsModel);
     m_tree->setHeaderHidden(true);
@@ -215,35 +266,31 @@ void QmlPane::buildUi()
     lay->addWidget(mainSplit, 1);
 
     m_engine = new QQmlEngine(this);
+    m_interceptor = new QrcUrlInterceptor;
+    m_engine->addUrlInterceptor(m_interceptor);
     connect(m_engine, &QQmlEngine::warnings, this, [this](const QList<QQmlError> &warnings) {
         for (const auto &w : warnings)
             appendLog(w.toString());
     });
 
+    // hidden renderer: frames go to the central QML canvas via frameUpdated()
     m_quick = new QQuickWidget(m_engine, this);
     m_quick->setResizeMode(QQuickWidget::SizeRootObjectToView);
     m_quick->setClearColor(Qt::white);
     m_quick->setFixedSize(m_w, m_h);
+    m_quick->hide();
     connect(m_quick, &QQuickWidget::statusChanged, this, [this](QQuickWidget::Status st) {
         if (st == QQuickWidget::Error)
             for (const auto &err : m_quick->errors())
                 appendLog(err.toString());
     });
 
-    m_entryLabel = new QLabel;
-    auto *previewRow = new QHBoxLayout;
-    previewRow->addWidget(m_quick);
-    previewRow->addSpacing(8);
-    previewRow->addWidget(m_entryLabel);
-    previewRow->addStretch(1);
-    lay->addLayout(previewRow);
-
     m_debounce.setSingleShot(true);
     m_debounce.setInterval(600);
     connect(&m_debounce, &QTimer::timeout, this, &QmlPane::reloadNow);
 
     connect(&m_grabTimer, &QTimer::timeout, this, [this] {
-        if (!isVisible() || !m_quick)
+        if (!m_quick || m_quick->status() != QQuickWidget::Ready)
             return;
         QImage img = m_quick->grabFramebuffer();
         if (img.isNull())
@@ -256,7 +303,7 @@ void QmlPane::buildUi()
             emit frameUpdated(img);
         }
     });
-    m_grabTimer.start(60);
+    m_grabTimer.setInterval(60);
 
     connect(openBtn, &QPushButton::clicked, this, [this] {
         const QString dir = QFileDialog::getExistingDirectory(this, tr("Open QML project folder"));
@@ -276,16 +323,12 @@ void QmlPane::buildUi()
     connect(f5, &QShortcut::activated, this, &QmlPane::reloadNow);
 }
 
-bool QmlPane::eventFilter(QObject *watched, QEvent *event)
+void QmlPane::setActive(bool active)
 {
-    if (event->type() == QEvent::KeyPress) {
-        auto *ke = static_cast<QKeyEvent *>(event);
-        if (ke->key() == Qt::Key_Tab && ke->modifiers() == Qt::NoModifier) {
-            static_cast<QPlainTextEdit *>(watched)->insertPlainText(QStringLiteral("    "));
-            return true;
-        }
-    }
-    return QWidget::eventFilter(watched, event);
+    if (active)
+        m_grabTimer.start();
+    else
+        m_grabTimer.stop();
 }
 
 void QmlPane::dragEnterEvent(QDragEnterEvent *event)
@@ -347,17 +390,28 @@ void QmlPane::loadDemoProject()
     m_tempDir = QTemporaryDir();
     if (!m_tempDir.isValid())
         return;
-    {
-        QFile f(m_tempDir.filePath(QStringLiteral("main.qml")));
-        if (!f.open(QIODevice::WriteOnly))
+
+    QImage logo(24, 24, QImage::Format_ARGB32);
+    logo.fill(Qt::transparent);
+    QPainter p(&logo);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor("#146edc"));
+    p.drawRect(2, 2, 20, 20);
+    p.setBrush(Qt::white);
+    p.drawRect(7, 7, 10, 10);
+    p.end();
+    logo.save(m_tempDir.filePath(QStringLiteral("logo.png")));
+
+    const QList<QPair<QString, QByteArray>> files = {
+        {QStringLiteral("main.qml"), QByteArray(kDemoMain)},
+        {QStringLiteral("MenuButton.qml"), QByteArray(kDemoMenuButton)},
+        {QStringLiteral("demo.qrc"), QByteArray(kDemoQrc)},
+    };
+    for (const auto &f : files) {
+        QFile out(m_tempDir.filePath(f.first));
+        if (!out.open(QIODevice::WriteOnly))
             return;
-        f.write(kDemoMain);
-    }
-    {
-        QFile f(m_tempDir.filePath(QStringLiteral("MenuButton.qml")));
-        if (!f.open(QIODevice::WriteOnly))
-            return;
-        f.write(kDemoMenuButton);
+        out.write(f.second);
     }
     openProjectDir(m_tempDir.path(), QStringLiteral("main.qml"));
 }
@@ -386,6 +440,46 @@ void QmlPane::appendLog(const QString &line)
     m_log->appendPlainText(line);
 }
 
+void QmlPane::scanQrc()
+{
+    QHash<QString, QString> map;
+    QDirIterator it(m_dir, {"*.qrc"}, QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        const QString qrcPath = it.next();
+        QFile f(qrcPath);
+        if (!f.open(QIODevice::ReadOnly))
+            continue;
+        QXmlStreamReader xml(&f);
+        QString prefix = "/";
+        while (!xml.atEnd()) {
+            const auto tok = xml.readNext();
+            if (tok != QXmlStreamReader::StartElement)
+                continue;
+            if (xml.name() == QLatin1String("qresource")) {
+                prefix = xml.attributes().value("prefix").toString();
+                if (prefix.isEmpty())
+                    prefix = "/";
+                if (!prefix.startsWith('/'))
+                    prefix.prepend('/');
+                while (prefix.size() > 1 && prefix.endsWith('/'))
+                    prefix.chop(1);
+            } else if (xml.name() == QLatin1String("file")) {
+                const QString alias = xml.attributes().value("alias").toString();
+                const QString file = xml.readElementText().trimmed();
+                if (file.isEmpty())
+                    continue;
+                // without an alias the resource keeps the listed path:
+                // <file>img/logo.png</file> -> :/img/logo.png
+                const QString name = alias.isEmpty() ? QDir::cleanPath(file) : alias;
+                const QString target =
+                    QFileInfo(QDir(QFileInfo(qrcPath).absolutePath()), file).absoluteFilePath();
+                map.insert((prefix == "/" ? QString() : prefix) + "/" + name, target);
+            }
+        }
+    }
+    m_interceptor->setMap(map);
+}
+
 void QmlPane::openFile(const QString &relPath)
 {
     if (m_dir.isEmpty() || relPath.isEmpty())
@@ -404,13 +498,14 @@ void QmlPane::openFile(const QString &relPath)
     const QString code = QString::fromUtf8(f.readAll());
     f.close();
 
-    auto *editor = new QPlainTextEdit;
+    auto *editor = new CodeEditor;
     editor->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     editor->setLineWrapMode(QPlainTextEdit::NoWrap);
     editor->setTabStopDistance(4 * editor->fontMetrics().horizontalAdvance(QLatin1Char(' ')));
     new QmlHighlighter(editor->document());
-    editor->installEventFilter(this);
+    editor->blockSignals(true);
     editor->setPlainText(code);
+    editor->blockSignals(false);
     connect(editor, &QPlainTextEdit::textChanged, this, &QmlPane::onTextChanged);
 
     const QString name = QFileInfo(relPath).fileName();
@@ -524,6 +619,7 @@ void QmlPane::reloadNow()
     saveFile(m_tabs->currentIndex());
 
     m_log->clear();
+    scanQrc();
     m_engine->clearComponentCache();
     m_quick->setSource(QUrl());
     m_quick->setSource(QUrl::fromLocalFile(QDir(m_dir).filePath(m_entry)));

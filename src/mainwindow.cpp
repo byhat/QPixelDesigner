@@ -63,7 +63,25 @@ void MainWindow::buildUi()
     scroll->setWidget(m_canvas);
     scroll->setWidgetResizable(false);
     scroll->setAlignment(Qt::AlignCenter);
-    setCentralWidget(scroll);
+
+    m_qmlCanvas = new ScreenCanvas; // display-only: external frames, no model
+    m_qmlCanvas->setScreenSize(m_screenW, m_screenH);
+    m_qmlCanvas->resize(m_qmlCanvas->sizeHint());
+    auto *qmlScroll = new QScrollArea;
+    qmlScroll->setWidget(m_qmlCanvas);
+    qmlScroll->setWidgetResizable(false);
+    qmlScroll->setAlignment(Qt::AlignCenter);
+
+    m_centralTabs = new QTabWidget;
+    m_centralTabs->addTab(scroll, tr("Layout"));
+    m_centralTabs->addTab(qmlScroll, tr("QML screen"));
+    m_centralTabs->setTabEnabled(0, true);
+    connect(m_centralTabs, &QTabWidget::currentChanged, this, [this](int index) {
+        const bool qml = (index == 1);
+        if (m_qmlModeAct->isChecked() != qml)
+            m_qmlModeAct->setChecked(qml);
+    });
+    setCentralWidget(m_centralTabs);
 
     QToolBar *tb = addToolBar(tr("Main"));
     tb->setMovable(false);
@@ -882,13 +900,19 @@ void MainWindow::setQmlMode(bool on)
         a->setEnabled(!on);
     m_bgBtn->setEnabled(!on);
     m_qmlDock->setVisible(on);
+    m_qmlPane->setActive(on);
+    m_centralTabs->setCurrentIndex(on ? 1 : 0);
 
     if (on) {
         m_qmlPane->setScreenSize(m_screenW, m_screenH);
-        m_canvas->setExternalImage(m_qmlPane->lastFrame());
+        if (!m_qmlPane->lastFrame().isNull()) {
+            m_lastRender = m_qmlPane->lastFrame();
+            m_qmlCanvas->setExternalImage(m_lastRender);
+            if (m_preview)
+                m_preview->setImage(m_lastRender);
+        }
         statusBar()->showMessage(tr("QML mode: edit the code on the left, the screen updates itself"), 5000);
     } else {
-        m_canvas->setExternalImage(QImage());
         refreshView();
     }
 }
@@ -898,7 +922,7 @@ void MainWindow::onQmlFrame(const QImage &frame)
     if (!m_qmlMode)
         return;
     m_lastRender = frame;
-    m_canvas->setExternalImage(frame);
+    m_qmlCanvas->setExternalImage(frame);
     if (m_preview)
         m_preview->setImage(frame);
 }
@@ -922,6 +946,7 @@ void MainWindow::applyScreenSize(int width, int height)
     m_screenW = width;
     m_screenH = height;
     m_canvas->setScreenSize(width, height);
+    m_qmlCanvas->setScreenSize(width, height);
     m_qmlPane->setScreenSize(width, height);
     m_sizeLabel->setText(tr("Screen: %1x%2 px").arg(m_screenW).arg(m_screenH));
     syncPresetCombo();
@@ -973,6 +998,8 @@ void MainWindow::setZoom(int zoom)
     zoom = qBound(1, zoom, 24);
     if (zoom != m_canvas->zoom())
         m_canvas->setZoom(zoom);
+    if (zoom != m_qmlCanvas->zoom())
+        m_qmlCanvas->setZoom(zoom);
     if (m_zoomSpin->value() != zoom)
         m_zoomSpin->setValue(zoom);
 }
@@ -980,6 +1007,7 @@ void MainWindow::setZoom(int zoom)
 void MainWindow::toggleGrid(bool on)
 {
     m_canvas->setShowGrid(on);
+    m_qmlCanvas->setShowGrid(on);
 }
 
 void MainWindow::togglePreview(bool on)

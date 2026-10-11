@@ -8,6 +8,8 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets Qml Quick QuickWidgets)
 
 add_executable(QPixelDesigner
+    src/codeeditor.h
+    src/codeeditor.cpp
     src/main.cpp
     src/mainwindow.h
     src/mainwindow.cpp

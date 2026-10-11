@@ -26,15 +26,20 @@ individually and fonts are rendered without antialiasing.
 
 ![QML mode](docs/qml-mode.png)
 
-The "QML mode" button opens a project workspace: a file tree on the left,
-a tabbed code editor with QML syntax highlighting, and a live render of the
-scene on the pixel screen.
+The "QML mode" button opens a project workspace: a file tree, a tabbed code
+editor with QML syntax highlighting, and the rendering as a second central
+tab — "Layout" shows the layout editor canvas, "QML screen" shows the
+rendered scene on the same pixel grid; switching tabs switches modes.
 
 - **Open folder…** (or drag a folder / .qml files onto the panel) points the
   panel at an existing QML project on disk; files are edited in place.
 - Files in the project reference each other by file name (`MenuButton.qml`
   becomes the `MenuButton` type), including subdirectories via
   `import "subdir"`; every reload re-reads them all.
+- **qrc resources**: .qrc files of the project are parsed and qrc:/ URLs are
+  resolved to project files (prefixes and aliases included), so
+  `source: "qrc:/gfx/banner.png"` works exactly like in a compiled Qt
+  project — no path rewriting when moving to real hardware.
 - The root scene defaults to `main.qml` (or the first .qml file); any file
   can be set as root from the tree context menu.
 - Typing auto-saves the active file to disk after 0.6 s and reloads the
@@ -42,6 +47,18 @@ scene on the pixel screen.
 - QML errors and warnings are logged with file/line/column; on error the
   canvas keeps the last good frame.
 - The "New file" button creates a .qml file in the project folder.
+
+The code editor follows Qt Creator basics:
+
+| Input | Behavior |
+|---|---|
+| Enter | keeps the indent, one level deeper after `{`; opens a block between `{` and `}` |
+| `{ ( [ " '` | inserts the matching pair; a selection gets wrapped |
+| `} ) ] " '` | steps over the closing character |
+| `}` at line start | dedents the line |
+| Backspace | deletes an empty pair |
+| Tab / Shift+Tab | indents / dedents lines by 4 spaces (selection-aware) |
+| Ctrl+/ | toggles `//` comments |
 
 Qt Quick antialiasing renders small text in gray, so frames are
 post-processed (combo box in the QML panel):
