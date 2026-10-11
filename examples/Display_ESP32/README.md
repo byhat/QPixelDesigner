@@ -1,14 +1,14 @@
 # Display_ESP32 — ST7735S on ESP32 WROOM-32
 
 An Arduino sketch that draws a 128x160 RGB565 image on an ST7735 1.8" SPI
-TFT. It demonstrates the Pixel UI Designer workflow end to end: design a
+TFT. It demonstrates the QPixelDesigner workflow end to end: design a
 screen, export the RGB565 C array, show it on real hardware. The driver
 talks to the display directly over hardware VSPI — no display library
 required.
 
 ## Generating image_data.h
 
-Design the screen in [Pixel UI Designer](../..) with the 128x160 (ST7735)
+Design the screen in [QPixelDesigner](../..) with the 128x160 (ST7735)
 preset, then press "RGB565 C array…":
 
 - array name: `max_icon_vertical` (the name used by the sketch) or edit

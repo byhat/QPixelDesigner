@@ -1,4 +1,4 @@
-# Pixel UI Designer
+# QPixelDesigner
 
 A visual UI editor for small pixel displays: ST7735 (128x160), SSD1306
 (128x64), ILI9341 (320x240) and any custom size. It shows how an interface
@@ -85,7 +85,7 @@ Build and run:
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
-./build/pixeldesigner
+./build/QPixelDesigner
 ```
 
 ## Controls

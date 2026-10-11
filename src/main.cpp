@@ -6,7 +6,7 @@
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    QApplication::setApplicationName(QStringLiteral("Pixel UI Designer"));
+    QApplication::setApplicationName(QStringLiteral("QPixelDesigner"));
     QApplication::setOrganizationName(QStringLiteral("pixui"));
 
     QQuickWindow::setTextRenderType(QQuickWindow::NativeTextRendering);

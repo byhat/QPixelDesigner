@@ -905,7 +905,7 @@ void MainWindow::onQmlFrame(const QImage &frame)
 void MainWindow::refreshTitle()
 {
     const QString name = m_filePath.isEmpty() ? tr("untitled") : QFileInfo(m_filePath).fileName();
-    setWindowTitle(QStringLiteral("%1%2 — Pixel UI Designer")
+    setWindowTitle(QStringLiteral("%1%2 — QPixelDesigner")
                        .arg(m_dirty ? "*" : "", name));
 }
 
@@ -955,7 +955,7 @@ void MainWindow::chooseScreenPreset(int index)
                 applyScreenSize(qBound(8, m.captured(1).toInt(), 2048),
                                 qBound(8, m.captured(2).toInt(), 2048));
             } else {
-                QMessageBox::warning(this, tr("Pixel UI Designer"),
+                QMessageBox::warning(this, tr("QPixelDesigner"),
                                      tr("Cannot parse size: %1").arg(txt));
             }
         }
@@ -1079,7 +1079,7 @@ bool MainWindow::saveProject()
 
     QFile f(path);
     if (!f.open(QIODevice::WriteOnly)) {
-        QMessageBox::warning(this, tr("Pixel UI Designer"),
+        QMessageBox::warning(this, tr("QPixelDesigner"),
                              tr("Cannot write file %1").arg(path));
         return false;
     }
@@ -1103,14 +1103,14 @@ void MainWindow::openProject()
 
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) {
-        QMessageBox::warning(this, tr("Pixel UI Designer"),
+        QMessageBox::warning(this, tr("QPixelDesigner"),
                              tr("Cannot open file %1").arg(path));
         return;
     }
     const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
     f.close();
     if (!doc.isObject()) {
-        QMessageBox::warning(this, tr("Pixel UI Designer"),
+        QMessageBox::warning(this, tr("QPixelDesigner"),
                              tr("File %1 does not look like a Pixel UI project").arg(path));
         return;
     }
@@ -1187,7 +1187,7 @@ void MainWindow::exportPng()
     if (m_lastRender.size() != QSize(m_screenW, m_screenH))
         m_lastRender = renderScreen(m_elements, m_screenW, m_screenH, m_bgColor);
     if (!m_lastRender.save(path))
-        QMessageBox::warning(this, tr("Pixel UI Designer"),
+        QMessageBox::warning(this, tr("QPixelDesigner"),
                              tr("Cannot save %1").arg(path));
 }
 
@@ -1265,7 +1265,7 @@ void MainWindow::exportCArray()
 
     QFile f(path);
     if (!f.open(QIODevice::WriteOnly)) {
-        QMessageBox::warning(this, tr("Pixel UI Designer"),
+        QMessageBox::warning(this, tr("QPixelDesigner"),
                              tr("Cannot write file %1").arg(path));
         return;
     }
@@ -1282,7 +1282,7 @@ bool MainWindow::maybeSave()
     if (!m_dirty)
         return true;
     const auto ret = QMessageBox::warning(
-        this, tr("Pixel UI Designer"), tr("The project has been modified. Save changes?"),
+        this, tr("QPixelDesigner"), tr("The project has been modified. Save changes?"),
         QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
     if (ret == QMessageBox::Save)
         return saveProject();
