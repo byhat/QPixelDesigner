@@ -1,94 +1,44 @@
 #include "qmlpane.h"
 
 #include "qmlhighlighter.h"
-#include "screenelement.h"
 
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDir>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include <QEvent>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
+#include <QFileSystemModel>
 #include <QFontDatabase>
 #include <QHBoxLayout>
-#include <QQmlError>
+#include <QHeaderView>
+#include <QInputDialog>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMenu>
+#include <QMimeData>
 #include <QQmlEngine>
+#include <QQmlError>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QQuickWidget>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 #include <QShortcut>
 #include <QSplitter>
-#include <QTemporaryDir>
+#include <QTabWidget>
 #include <QTimer>
+#include <QTreeView>
 #include <QUrl>
 #include <QVBoxLayout>
 
-
-QString qmlDemoSource()
-{
-    return QStringLiteral(
-        "// Coordinates are in screen pixels.\n"
-        "import QtQuick\n"
-        "\n"
-        "Rectangle {\n"
-        "    color: \"#ffffff\"\n"
-        "\n"
-        "    Text {\n"
-        "        x: 6; y: 6\n"
-        "        text: \"THERMOSTAT\"\n"
-        "        font.pixelSize: 11\n"
-        "        color: \"#111111\"\n"
-        "        renderType: Text.NativeRendering\n"
-        "    }\n"
-        "\n"
-        "    Rectangle {\n"
-        "        x: 6; y: 22; width: 116; height: 1\n"
-        "        color: \"#000000\"\n"
-        "    }\n"
-        "\n"
-        "    Rectangle {\n"
-        "        x: 6; y: 30; width: 116; height: 20\n"
-        "        radius: 4\n"
-        "        color: \"transparent\"\n"
-        "        border.color: \"#000000\"\n"
-        "\n"
-        "        Text {\n"
-        "            x: 6; y: 5\n"
-        "            text: \"1. Home\"\n"
-        "            font.pixelSize: 10\n"
-        "            renderType: Text.NativeRendering\n"
-        "        }\n"
-        "    }\n"
-        "\n"
-        "    Rectangle {\n"
-        "        x: 6; y: 54; width: 116; height: 20\n"
-        "        radius: 4\n"
-        "        color: \"transparent\"\n"
-        "        border.color: \"#000000\"\n"
-        "\n"
-        "        Text {\n"
-        "            x: 6; y: 5\n"
-        "            text: \"2. Settings\"\n"
-        "            font.pixelSize: 10\n"
-        "            renderType: Text.NativeRendering\n"
-        "        }\n"
-        "    }\n"
-        "\n"
-        "    Rectangle {\n"
-        "        x: 6; y: 130; width: 116; height: 20\n"
-        "        radius: 9\n"
-        "        color: \"#146edc\"\n"
-        "\n"
-        "        Text {\n"
-        "            anchors.centerIn: parent\n"
-        "            text: \"OK\"\n"
-        "            color: \"#ffffff\"\n"
-        "            font.pixelSize: 10\n"
-        "            renderType: Text.NativeRendering\n"
-        "        }\n"
-        "    }\n"
-        "}\n");
-}
-
+/** @brief Threshold frame processing: Qt Quick antialiasing renders small
+ *  text as gray pixels that do not exist on a pixel display. GrayToBw
+ *  binarizes gray pixels only and keeps colored elements; Mono1Bit converts
+ *  the whole frame to black and white. */
 static QImage snapFrame(const QImage &src, FrameSnap mode)
 {
     if (mode == FrameSnap::Off)
@@ -111,41 +61,140 @@ static QImage snapFrame(const QImage &src, FrameSnap mode)
     return out;
 }
 
+static const char *kDemoMain = R"QML(// Coordinates are in screen pixels.
+import QtQuick
+
+Rectangle {
+    color: "#ffffff"
+
+    Text {
+        x: 6; y: 6
+        text: "THERMOSTAT"
+        font.pixelSize: 11
+        color: "#111111"
+        renderType: Text.NativeRendering
+    }
+
+    Rectangle { x: 6; y: 22; width: 116; height: 1; color: "#000000" }
+
+    MenuButton { x: 6; y: 30; label: "1. Home" }
+    MenuButton { x: 6; y: 54; label: "2. Settings" }
+
+    Rectangle {
+        x: 6; y: 130; width: 116; height: 20
+        radius: 9
+        color: "#146edc"
+
+        Text {
+            anchors.centerIn: parent
+            text: "OK"
+            color: "#ffffff"
+            font.pixelSize: 10
+            renderType: Text.NativeRendering
+        }
+    }
+}
+)QML";
+
+static const char *kDemoMenuButton = R"QML(// A reusable component from a separate file.
+import QtQuick
+
+Rectangle {
+    id: root
+
+    property string label: ""
+
+    width: 116
+    height: 20
+    radius: 4
+    color: "transparent"
+    border.color: "#000000"
+
+    Text {
+        x: 6; y: 5
+        text: root.label
+        font.pixelSize: 10
+        renderType: Text.NativeRendering
+    }
+}
+)QML";
+
 QmlPane::QmlPane(QWidget *parent)
     : QWidget(parent)
 {
+    buildUi();
+}
+
+void QmlPane::buildUi()
+{
+    setAcceptDrops(true);
+
     auto *lay = new QVBoxLayout(this);
     lay->setContentsMargins(4, 4, 4, 4);
     lay->setSpacing(4);
 
     auto *top = new QHBoxLayout;
+    auto *openBtn = new QPushButton(tr("Open folder…"));
+    auto *newBtn = new QPushButton(tr("New file"));
     auto *reloadBtn = new QPushButton(tr("Reload (F5)"));
     auto *autoCheck = new QCheckBox(tr("Auto"));
     autoCheck->setChecked(true);
-    autoCheck->setToolTip(tr("Reload the scene while typing"));
-    auto *openBtn = new QPushButton(tr("Open…"));
-    auto *saveBtn = new QPushButton(tr("Save…"));
+    autoCheck->setToolTip(tr("Auto-save and reload the scene while typing"));
     m_snapCombo = new QComboBox;
     m_snapCombo->addItem(tr("Gray -> B/W (LCD look)"));
     m_snapCombo->addItem(tr("Full 1-bit (monochrome)"));
     m_snapCombo->addItem(tr("No processing"));
     m_snapCombo->setToolTip(tr("QML antialiasing renders small text in gray; "
                                "the threshold turns gray pixels black/white and keeps colors"));
+    top->addWidget(openBtn);
+    top->addWidget(newBtn);
     top->addWidget(reloadBtn);
     top->addWidget(autoCheck);
     top->addWidget(m_snapCombo);
     top->addStretch(1);
-    top->addWidget(openBtn);
-    top->addWidget(saveBtn);
     lay->addLayout(top);
 
-    auto *split = new QSplitter(Qt::Vertical);
-    m_editor = new QPlainTextEdit;
-    m_editor->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-    m_editor->setLineWrapMode(QPlainTextEdit::NoWrap);
-    m_editor->setTabStopDistance(4 * m_editor->fontMetrics().horizontalAdvance(QLatin1Char(' ')));
-    new QmlHighlighter(m_editor->document());
-    m_editor->installEventFilter(this);
+    m_tree = new QTreeView;
+    m_fsModel = new QFileSystemModel(this);
+    m_fsModel->setFilter(QDir::Files | QDir::AllDirs | QDir::NoDotAndDotDot);
+    m_fsModel->setNameFilters({"*.qml", "qmldir"});
+    m_fsModel->setNameFilterDisables(false);
+    m_tree->setModel(m_fsModel);
+    m_tree->setHeaderHidden(true);
+    m_tree->setRootIsDecorated(true);
+    for (int c = 1; c < m_tree->header()->count(); ++c)
+        m_tree->setColumnHidden(c, true);
+    connect(m_tree, &QTreeView::clicked, this, [this](const QModelIndex &index) {
+        if (m_fsModel->isDir(index))
+            return;
+        const QString rel = m_dir.isEmpty()
+                                ? QString()
+                                : QDir(m_dir).relativeFilePath(m_fsModel->filePath(index));
+        if (!rel.isEmpty() && !rel.startsWith(".."))
+            openFile(rel);
+    });
+    m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_tree, &QWidget::customContextMenuRequested, this, [this](const QPoint &pos) {
+        const QModelIndex index = m_tree->indexAt(pos);
+        if (!index.isValid() || m_fsModel->isDir(index) || m_dir.isEmpty())
+            return;
+        const QString rel = QDir(m_dir).relativeFilePath(m_fsModel->filePath(index));
+        if (rel.isEmpty() || rel.startsWith(".."))
+            return;
+        QMenu menu;
+        menu.addAction(tr("Set as root scene"), this, [this, rel] { setEntry(rel); });
+        menu.exec(m_tree->mapToGlobal(pos));
+    });
+
+    m_tabs = new QTabWidget;
+    m_tabs->setTabsClosable(true);
+    m_tabs->setMovable(true);
+    connect(m_tabs, &QTabWidget::tabCloseRequested, this, &QmlPane::closeTab);
+    connect(m_tabs, &QTabWidget::currentChanged, this, [this](int index) {
+        if (m_lastTabIndex >= 0 && m_lastTabIndex < m_tabs->count() && m_lastTabIndex != index)
+            saveFile(m_lastTabIndex);
+        m_lastTabIndex = index;
+    });
 
     m_log = new QPlainTextEdit;
     m_log->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
@@ -153,12 +202,18 @@ QmlPane::QmlPane(QWidget *parent)
     m_log->setFixedHeight(80);
     m_log->setPlaceholderText(tr("QML errors and warnings appear here"));
 
-    split->addWidget(m_editor);
-    split->addWidget(m_log);
-    split->setStretchFactor(0, 1);
-    lay->addWidget(split, 1);
+    auto *editorSplit = new QSplitter(Qt::Vertical);
+    editorSplit->addWidget(m_tabs);
+    editorSplit->addWidget(m_log);
+    editorSplit->setStretchFactor(0, 1);
 
-    auto *previewRow = new QHBoxLayout;
+    auto *mainSplit = new QSplitter(Qt::Horizontal);
+    mainSplit->addWidget(m_tree);
+    mainSplit->addWidget(editorSplit);
+    mainSplit->setStretchFactor(1, 1);
+    mainSplit->setSizes({200, 600});
+    lay->addWidget(mainSplit, 1);
+
     m_engine = new QQmlEngine(this);
     connect(m_engine, &QQmlEngine::warnings, this, [this](const QList<QQmlError> &warnings) {
         for (const auto &w : warnings)
@@ -174,20 +229,18 @@ QmlPane::QmlPane(QWidget *parent)
             for (const auto &err : m_quick->errors())
                 appendLog(err.toString());
     });
+
+    m_entryLabel = new QLabel;
+    auto *previewRow = new QHBoxLayout;
     previewRow->addWidget(m_quick);
+    previewRow->addSpacing(8);
+    previewRow->addWidget(m_entryLabel);
     previewRow->addStretch(1);
     lay->addLayout(previewRow);
 
     m_debounce.setSingleShot(true);
     m_debounce.setInterval(600);
     connect(&m_debounce, &QTimer::timeout, this, &QmlPane::reloadNow);
-    connect(m_editor, &QPlainTextEdit::textChanged, this, [this] {
-        if (m_loading)
-            return;
-        emit sourceEdited();
-        if (m_quick)
-            m_debounce.start();
-    });
 
     connect(&m_grabTimer, &QTimer::timeout, this, [this] {
         if (!isVisible() || !m_quick)
@@ -205,30 +258,18 @@ QmlPane::QmlPane(QWidget *parent)
     });
     m_grabTimer.start(60);
 
+    connect(openBtn, &QPushButton::clicked, this, [this] {
+        const QString dir = QFileDialog::getExistingDirectory(this, tr("Open QML project folder"));
+        if (!dir.isEmpty())
+            openProjectDir(dir);
+    });
+    connect(newBtn, &QPushButton::clicked, this, &QmlPane::newFile);
     connect(reloadBtn, &QPushButton::clicked, this, &QmlPane::reloadNow);
     connect(autoCheck, &QCheckBox::toggled, this, [this](bool on) {
-        if (on)
-            reloadNow();
-    });
-    connect(openBtn, &QPushButton::clicked, this, [this] {
-        const QString path = QFileDialog::getOpenFileName(this, tr("Open QML"), QString(),
-                                                          "QML (*.qml)");
-        if (path.isEmpty())
-            return;
-        QFile f(path);
-        if (!f.open(QIODevice::ReadOnly))
-            return;
-        setSourceText(QString::fromUtf8(f.readAll()));
-    });
-    connect(saveBtn, &QPushButton::clicked, this, [this] {
-        QString path = QFileDialog::getSaveFileName(this, tr("Save QML"),
-                                                    QStringLiteral("scene.qml"), "QML (*.qml)");
-        if (path.isEmpty())
-            return;
-        path = withForcedSuffix(path, QStringLiteral(".qml"));
-        QFile f(path);
-        if (f.open(QIODevice::WriteOnly))
-            f.write(m_editor->toPlainText().toUtf8());
+        if (!on)
+            m_debounce.stop();
+        else if (m_tabs->currentWidget())
+            m_debounce.start();
     });
 
     auto *f5 = new QShortcut(QKeySequence(Qt::Key_F5), this);
@@ -237,14 +278,41 @@ QmlPane::QmlPane(QWidget *parent)
 
 bool QmlPane::eventFilter(QObject *watched, QEvent *event)
 {
-    if (watched == m_editor && event->type() == QEvent::KeyPress) {
+    if (event->type() == QEvent::KeyPress) {
         auto *ke = static_cast<QKeyEvent *>(event);
         if (ke->key() == Qt::Key_Tab && ke->modifiers() == Qt::NoModifier) {
-            m_editor->insertPlainText(QStringLiteral("    "));
+            static_cast<QPlainTextEdit *>(watched)->insertPlainText(QStringLiteral("    "));
             return true;
         }
     }
     return QWidget::eventFilter(watched, event);
+}
+
+void QmlPane::dragEnterEvent(QDragEnterEvent *event)
+{
+    const auto urls = event->mimeData()->urls();
+    for (const QUrl &u : urls) {
+        const QFileInfo fi(u.toLocalFile());
+        if (fi.isDir() || (fi.isFile() && fi.suffix() == "qml")) {
+            event->acceptProposedAction();
+            return;
+        }
+    }
+}
+
+void QmlPane::dropEvent(QDropEvent *event)
+{
+    const auto urls = event->mimeData()->urls();
+    if (urls.isEmpty())
+        return;
+    const QFileInfo fi(urls.first().toLocalFile());
+    if (fi.isDir()) {
+        openProjectDir(fi.absoluteFilePath());
+    } else if (fi.suffix() == "qml") {
+        openProjectDir(fi.absolutePath(), fi.fileName() == "main.qml" ? fi.fileName()
+                                                                     : QString());
+    }
+    event->acceptProposedAction();
 }
 
 void QmlPane::setScreenSize(int width, int height)
@@ -255,17 +323,57 @@ void QmlPane::setScreenSize(int width, int height)
         m_quick->setFixedSize(m_w, m_h);
 }
 
-void QmlPane::setSourceText(const QString &code)
+bool QmlPane::openProjectDir(const QString &dir, const QString &entry)
 {
-    m_loading = true;
-    m_editor->setPlainText(code);
-    m_loading = false;
+    if (dir.isEmpty() || !QDir(dir).exists())
+        return false;
+
+    m_dir = dir;
+    while (m_tabs->count() > 0)
+        closeTab(0);
+    m_tree->setRootIndex(m_fsModel->setRootPath(dir));
+    pickDefaultEntry();
+    if (!entry.isEmpty() && QFileInfo::exists(QDir(dir).filePath(entry)))
+        m_entry = entry;
+
+    openFile(m_entry);
+    updateEntryLabel();
     reloadNow();
+    return true;
 }
 
-QString QmlPane::source() const
+void QmlPane::loadDemoProject()
 {
-    return m_editor ? m_editor->toPlainText() : QString();
+    m_tempDir = QTemporaryDir();
+    if (!m_tempDir.isValid())
+        return;
+    {
+        QFile f(m_tempDir.filePath(QStringLiteral("main.qml")));
+        if (!f.open(QIODevice::WriteOnly))
+            return;
+        f.write(kDemoMain);
+    }
+    {
+        QFile f(m_tempDir.filePath(QStringLiteral("MenuButton.qml")));
+        if (!f.open(QIODevice::WriteOnly))
+            return;
+        f.write(kDemoMenuButton);
+    }
+    openProjectDir(m_tempDir.path(), QStringLiteral("main.qml"));
+}
+
+bool QmlPane::writeEntrySource(const QString &code)
+{
+    if (m_dir.isEmpty() || m_entry.isEmpty())
+        return false;
+    QFile f(QDir(m_dir).filePath(m_entry));
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return false;
+    f.write(code.toUtf8());
+    f.close();
+    openFile(m_entry);
+    reloadNow();
+    return true;
 }
 
 QString QmlPane::logText() const
@@ -278,23 +386,147 @@ void QmlPane::appendLog(const QString &line)
     m_log->appendPlainText(line);
 }
 
-void QmlPane::reloadNow()
+void QmlPane::openFile(const QString &relPath)
 {
-    if (!m_quick || !m_tempDir.isValid())
+    if (m_dir.isEmpty() || relPath.isEmpty())
         return;
 
-    const QString path = m_tempDir.filePath(QStringLiteral("scene.qml"));
-    {
-        QFile f(path);
-        if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+    for (int i = 0; i < m_tabs->count(); ++i) {
+        if (m_tabs->widget(i)->property("relPath").toString() == relPath) {
+            m_tabs->setCurrentIndex(i);
             return;
-        f.write(m_editor->toPlainText().toUtf8());
+        }
     }
+
+    QFile f(QDir(m_dir).filePath(relPath));
+    if (!f.open(QIODevice::ReadOnly))
+        return;
+    const QString code = QString::fromUtf8(f.readAll());
+    f.close();
+
+    auto *editor = new QPlainTextEdit;
+    editor->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    editor->setLineWrapMode(QPlainTextEdit::NoWrap);
+    editor->setTabStopDistance(4 * editor->fontMetrics().horizontalAdvance(QLatin1Char(' ')));
+    new QmlHighlighter(editor->document());
+    editor->installEventFilter(this);
+    editor->setPlainText(code);
+    connect(editor, &QPlainTextEdit::textChanged, this, &QmlPane::onTextChanged);
+
+    const QString name = QFileInfo(relPath).fileName();
+    const int idx = m_tabs->addTab(editor, name);
+    m_tabs->setTabToolTip(idx, relPath);
+    m_tabs->widget(idx)->setProperty("relPath", relPath);
+    m_tabs->setCurrentIndex(idx);
+    editor->document()->setModified(false);
+}
+
+void QmlPane::onTextChanged()
+{
+    const int idx = m_tabs->currentIndex();
+    if (idx < 0)
+        return;
+    QWidget *w = m_tabs->widget(idx);
+    const QString relPath = w->property("relPath").toString();
+    if (!relPath.isEmpty() && !m_tabs->tabText(idx).startsWith("* "))
+        m_tabs->setTabText(idx, "* " + QFileInfo(relPath).fileName());
+    m_debounce.start();
+    emit sourceEdited();
+}
+
+bool QmlPane::saveFile(int tabIndex)
+{
+    if (tabIndex < 0 || tabIndex >= m_tabs->count())
+        return false;
+    QWidget *w = m_tabs->widget(tabIndex);
+    const QString relPath = w->property("relPath").toString();
+    auto *editor = qobject_cast<QPlainTextEdit *>(w);
+    if (!editor || relPath.isEmpty())
+        return false;
+
+    if (!editor->document()->isModified()) {
+        m_tabs->setTabText(tabIndex, QFileInfo(relPath).fileName());
+        return true;
+    }
+
+    QFile f(QDir(m_dir).filePath(relPath));
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return false;
+    f.write(editor->toPlainText().toUtf8());
+    f.close();
+    editor->document()->setModified(false);
+    m_tabs->setTabText(tabIndex, QFileInfo(relPath).fileName());
+    return true;
+}
+
+void QmlPane::closeTab(int index)
+{
+    saveFile(index);
+    QWidget *w = m_tabs->widget(index);
+    m_tabs->removeTab(index);
+    delete w;
+    if (m_lastTabIndex >= m_tabs->count())
+        m_lastTabIndex = m_tabs->count() - 1;
+}
+
+void QmlPane::setEntry(const QString &relPath)
+{
+    m_entry = relPath;
+    updateEntryLabel();
+    reloadNow();
+}
+
+void QmlPane::pickDefaultEntry()
+{
+    const QDir dir(m_dir);
+    const QStringList files = dir.entryList({"*.qml"}, QDir::Files, QDir::Name);
+    if (files.contains("main.qml"))
+        m_entry = "main.qml";
+    else if (!files.isEmpty())
+        m_entry = files.first();
+    else
+        m_entry.clear();
+}
+
+void QmlPane::updateEntryLabel()
+{
+    m_entryLabel->setText(tr("Root scene: %1").arg(m_entry.isEmpty() ? "—" : m_entry));
+}
+
+void QmlPane::newFile()
+{
+    if (m_dir.isEmpty())
+        return;
+    static const QRegularExpression re("^[A-Za-z0-9_][A-Za-z0-9_\\-]*\\.qml$");
+    const QString name = QInputDialog::getText(
+        this, tr("New QML file"), tr("File name:"),
+        QLineEdit::Normal, QStringLiteral("Component.qml"));
+    if (name.isEmpty() || !re.match(name).hasMatch())
+        return;
+
+    QFile f(QDir(m_dir).filePath(name));
+    if (f.exists()) {
+        openFile(name);
+        return;
+    }
+    if (!f.open(QIODevice::WriteOnly))
+        return;
+    f.write("import QtQuick\n\nRectangle {\n}\n");
+    f.close();
+    openFile(name);
+}
+
+void QmlPane::reloadNow()
+{
+    if (m_dir.isEmpty() || m_entry.isEmpty())
+        return;
+
+    saveFile(m_tabs->currentIndex());
 
     m_log->clear();
     m_engine->clearComponentCache();
     m_quick->setSource(QUrl());
-    m_quick->setSource(QUrl::fromLocalFile(path));
+    m_quick->setSource(QUrl::fromLocalFile(QDir(m_dir).filePath(m_entry)));
     if (m_quick->status() == QQuickWidget::Error) {
         for (const auto &err : m_quick->errors())
             appendLog(err.toString());

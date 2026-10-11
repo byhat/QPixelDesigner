@@ -9,6 +9,7 @@
 #include <QColorDialog>
 #include <QComboBox>
 #include <QDialog>
+#include <QDir>
 #include <QDialogButtonBox>
 #include <QDockWidget>
 #include <QDoubleSpinBox>
@@ -271,7 +272,7 @@ void MainWindow::buildUi()
 
     m_qmlPane = new QmlPane;
     m_qmlPane->setScreenSize(m_screenW, m_screenH);
-    m_qmlPane->setSourceText(qmlDemoSource());
+    m_qmlPane->loadDemoProject();
     connect(m_qmlPane, &QmlPane::frameUpdated, this, &MainWindow::onQmlFrame);
     connect(m_qmlPane, &QmlPane::sourceEdited, this, &MainWindow::markDirty);
 
@@ -1068,7 +1069,8 @@ bool MainWindow::saveProject()
     root["screen"] = scr;
     if (m_qmlMode) {
         root["mode"] = QStringLiteral("qml");
-        root["qml"] = m_qmlPane->source();
+        root["qmlDir"] = m_qmlPane->projectDir();
+        root["qmlEntry"] = m_qmlPane->entryFile();
     } else {
         root["mode"] = QStringLiteral("layout");
         QJsonArray arr;
@@ -1143,7 +1145,19 @@ void MainWindow::openProject()
     if (isQml) {
         if (!m_qmlModeAct->isChecked())
             m_qmlModeAct->setChecked(true);
-        m_qmlPane->setSourceText(root["qml"].toString());
+        const QString dir = root["qmlDir"].toString();
+        const QString entry = root["qmlEntry"].toString();
+        if (!dir.isEmpty() && QDir(dir).exists()) {
+            m_qmlPane->openProjectDir(dir, entry);
+        } else {
+            if (!dir.isEmpty())
+                QMessageBox::warning(this, tr("QPixelDesigner"),
+                                     tr("QML folder %1 not found, loading the demo project").arg(dir));
+            m_qmlPane->loadDemoProject();
+        }
+        const QString legacy = root["qml"].toString();
+        if (!legacy.isEmpty())
+            m_qmlPane->writeEntrySource(legacy);
     } else if (m_qmlModeAct->isChecked()) {
         m_qmlModeAct->setChecked(false);
     }
@@ -1172,7 +1186,7 @@ void MainWindow::newProject()
     m_dirty = false;
     refreshTitle();
     if (m_qmlMode)
-        m_qmlPane->setSourceText(qmlDemoSource());
+        m_qmlPane->loadDemoProject();
     else
         refreshView();
 }

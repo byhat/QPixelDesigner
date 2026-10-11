@@ -7,12 +7,13 @@
 #include <QWidget>
 
 class QComboBox;
+class QFileSystemModel;
+class QLabel;
 class QQmlEngine;
 class QPlainTextEdit;
 class QQuickWidget;
-
-/** @brief Source text of the demo QML scene. */
-QString qmlDemoSource();
+class QTabWidget;
+class QTreeView;
 
 /** @brief Post-processing applied to captured QML frames. */
 enum class FrameSnap {
@@ -22,12 +23,14 @@ enum class FrameSnap {
 };
 
 /**
- * @brief QML-mode panel: a code editor with a live scene preview.
+ * @brief QML-mode panel: a project tree, a tabbed code editor and a live
+ * scene preview.
  *
- * The code is written to a temporary file and reloaded into a QQuickWidget
- * sized to the screen, either debounced while typing or on F5; the captured
- * frame is emitted via frameUpdated(). Compilation errors and QML warnings
- * go to the log.
+ * The panel works with a directory on disk. QML files can reference each
+ * other by file name; the scene renders from the entry file (main.qml by
+ * default, changeable from the tree context menu). Edited files are
+ * auto-saved to disk after a debounce and the scene reloads, so changes in
+ * any file propagate immediately.
  */
 class QmlPane : public QWidget
 {
@@ -36,8 +39,13 @@ public:
     explicit QmlPane(QWidget *parent = nullptr);
 
     void setScreenSize(int width, int height);
-    void setSourceText(const QString &code); ///< set the text and reload the scene
-    QString source() const;
+
+    bool openProjectDir(const QString &dir, const QString &entry = QString());
+    void loadDemoProject(); ///< two-file demo scene in a temporary directory
+    bool writeEntrySource(const QString &code); ///< replace entry file contents
+
+    QString projectDir() const { return m_dir; }
+    QString entryFile() const { return m_entry; }
     QString logText() const;
     QImage lastFrame() const { return m_lastFrame; }
 
@@ -46,24 +54,43 @@ signals:
     void sourceEdited();
 
 public slots:
-    void reloadNow(); ///< write the code to a temp file and reload the scene
+    void reloadNow(); ///< save the active file and reload the scene
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
 private:
+    void buildUi();
+    void openFile(const QString &relPath);
+    bool saveFile(int tabIndex);
+    void closeTab(int index);
+    void setEntry(const QString &relPath);
+    void pickDefaultEntry();
+    void updateEntryLabel();
+    void newFile();
     void appendLog(const QString &line);
 
-    QPlainTextEdit *m_editor = nullptr;
+private slots:
+    void onTextChanged(); ///< dirty mark on the tab, debounce autosave
+
+private:
+    QTreeView *m_tree = nullptr;
+    QFileSystemModel *m_fsModel = nullptr;
+    QTabWidget *m_tabs = nullptr;
     QPlainTextEdit *m_log = nullptr;
     QQuickWidget *m_quick = nullptr;
     QQmlEngine *m_engine = nullptr;
     QComboBox *m_snapCombo = nullptr; ///< FrameSnap mode selector
-    QTimer m_debounce;                ///< typing-to-reload delay
+    QLabel *m_entryLabel = nullptr;   ///< current entry file
+    QTimer m_debounce;                ///< typing-to-autosave delay
     QTimer m_grabTimer;               ///< periodic frame capture
-    QTemporaryDir m_tempDir;
+    QTemporaryDir m_tempDir;          ///< storage for the demo project
+    QString m_dir;                    ///< project directory, absolute
+    QString m_entry;                  ///< entry file, relative to m_dir
     QImage m_lastFrame;
     int m_w = 128;
     int m_h = 160;
-    bool m_loading = false; ///< programmatic editor change, not user input
+    int m_lastTabIndex = -1; ///< tab to save when the active tab changes
 };

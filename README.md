@@ -26,10 +26,22 @@ individually and fonts are rendered without antialiasing.
 
 ![QML mode](docs/qml-mode.png)
 
-The "QML mode" button opens a code editor: the scene reloads while typing
-(0.6 s debounce) or on F5, QML errors are logged with file/line/column,
-and the frame updates on the canvas and in the 1:1 preview. Coordinates
-in QML are the same screen pixels; the root `Rectangle` fills the screen.
+The "QML mode" button opens a project workspace: a file tree on the left,
+a tabbed code editor with QML syntax highlighting, and a live render of the
+scene on the pixel screen.
+
+- **Open folder…** (or drag a folder / .qml files onto the panel) points the
+  panel at an existing QML project on disk; files are edited in place.
+- Files in the project reference each other by file name (`MenuButton.qml`
+  becomes the `MenuButton` type), including subdirectories via
+  `import "subdir"`; every reload re-reads them all.
+- The root scene defaults to `main.qml` (or the first .qml file); any file
+  can be set as root from the tree context menu.
+- Typing auto-saves the active file to disk after 0.6 s and reloads the
+  scene; F5 reloads without waiting. Tab titles show unsaved edits.
+- QML errors and warnings are logged with file/line/column; on error the
+  canvas keeps the last good frame.
+- The "New file" button creates a .qml file in the project folder.
 
 Qt Quick antialiasing renders small text in gray, so frames are
 post-processed (combo box in the QML panel):
@@ -42,6 +54,9 @@ post-processed (combo box in the QML panel):
 
 Using `renderType: Text.NativeRendering` in scene code is recommended —
 native font rendering instead of distance-field.
+
+The .pixui.json project stores the folder path and entry file
+(`"qmlDir"`, `"qmlEntry"`); QML sources stay on disk next to it.
 
 ## RGB565 export
 
