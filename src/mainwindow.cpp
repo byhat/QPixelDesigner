@@ -75,12 +75,8 @@ void MainWindow::buildUi()
     m_centralTabs = new QTabWidget;
     m_centralTabs->addTab(scroll, tr("Layout"));
     m_centralTabs->addTab(qmlScroll, tr("QML screen"));
-    m_centralTabs->setTabEnabled(0, true);
-    connect(m_centralTabs, &QTabWidget::currentChanged, this, [this](int index) {
-        const bool qml = (index == 1);
-        if (m_qmlModeAct->isChecked() != qml)
-            m_qmlModeAct->setChecked(qml);
-    });
+    m_centralTabs->setTabEnabled(1, false);
+    connect(m_centralTabs, &QTabWidget::currentChanged, this, &MainWindow::onPreviewTabChanged);
     setCentralWidget(m_centralTabs);
 
     QToolBar *tb = addToolBar(tr("Main"));
@@ -876,16 +872,13 @@ void MainWindow::onModelChanged()
 
 void MainWindow::refreshView()
 {
-    if (m_qmlMode) {
-        m_canvas->update();
+    m_canvas->update();
+    m_qmlCanvas->update();
+    if (m_centralTabs->currentIndex() == 0) {
+        m_lastRender = renderScreen(m_elements, m_screenW, m_screenH, m_bgColor);
         if (m_preview)
             m_preview->setImage(m_lastRender);
-        return;
     }
-    m_lastRender = renderScreen(m_elements, m_screenW, m_screenH, m_bgColor);
-    m_canvas->update();
-    if (m_preview)
-        m_preview->setImage(m_lastRender);
 }
 
 
@@ -895,36 +888,35 @@ void MainWindow::setQmlMode(bool on)
         return;
     m_qmlMode = on;
 
-    m_elemDock->setVisible(!on);
-    for (QAction *a : m_elementActs)
-        a->setEnabled(!on);
-    m_bgBtn->setEnabled(!on);
+    // режим включает и выключает только редактор QML-проекта;
+    // макет остаётся доступным для правки в любой момент
     m_qmlDock->setVisible(on);
     m_qmlPane->setActive(on);
-    m_centralTabs->setCurrentIndex(on ? 1 : 0);
-
-    if (on) {
-        m_qmlPane->setScreenSize(m_screenW, m_screenH);
-        if (!m_qmlPane->lastFrame().isNull()) {
-            m_lastRender = m_qmlPane->lastFrame();
-            m_qmlCanvas->setExternalImage(m_lastRender);
-            if (m_preview)
-                m_preview->setImage(m_lastRender);
-        }
-        statusBar()->showMessage(tr("QML mode: edit the code on the left, the screen updates itself"), 5000);
-    } else {
-        refreshView();
-    }
+    m_qmlPane->setScreenSize(m_screenW, m_screenH);
+    m_centralTabs->setTabEnabled(1, on);
+    if (!on && m_centralTabs->currentIndex() == 1)
+        m_centralTabs->setCurrentIndex(0);
 }
 
 void MainWindow::onQmlFrame(const QImage &frame)
 {
     if (!m_qmlMode)
         return;
-    m_lastRender = frame;
+    m_qmlFrame = frame;
     m_qmlCanvas->setExternalImage(frame);
+    if (m_centralTabs->currentIndex() == 1) {
+        m_lastRender = frame;
+        if (m_preview)
+            m_preview->setImage(frame);
+    }
+}
+
+void MainWindow::onPreviewTabChanged(int index)
+{
+    m_lastRender = index == 1 ? m_qmlFrame
+                              : renderScreen(m_elements, m_screenW, m_screenH, m_bgColor);
     if (m_preview)
-        m_preview->setImage(frame);
+        m_preview->setImage(m_lastRender);
 }
 
 void MainWindow::refreshTitle()

@@ -72,6 +72,7 @@ private slots:
     void nudgeSelected(int dx, int dy);
     void setQmlMode(bool on);
     void onQmlFrame(const QImage &frame);
+    void onPreviewTabChanged(int index); ///< central tab switch: preview only, no mode change
 
 private:
     void buildUi();
@@ -100,7 +101,8 @@ private:
     bool m_dirty = false;
     QString m_filePath;
     int m_counters[4] = {0, 0, 0, 0}; ///< name counters per element kind
-    QImage m_lastRender;              ///< latest frame (export, color picker)
+    QImage m_lastRender;              ///< frame of the current central tab
+    QImage m_qmlFrame;                ///< latest frame of the QML project
     bool m_updating = false;          ///< re-entrancy guard for UI sync
 
     ScreenCanvas *m_canvas = nullptr;     ///< layout editing canvas
