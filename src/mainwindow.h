@@ -91,7 +91,7 @@ private:
     void syncPresetCombo(); ///< select the combo entry for the current screen size
     void syncCounters();    ///< element-name counters, derived from name suffixes
     void setColorButton(QPushButton *button, const QColor &color);
-    void applyQmlPreviewSize(); ///< stretch the QML preview, or fix it at screen x zoom
+    void fitQmlPreview(); ///< stretch the live QML preview to the tab viewport
     void moveLayerStep(int dir); ///< move layer up for dir > 0, down for dir < 0
     std::vector<int> selSorted() const;  ///< selected indices, ascending
     int maxGroupId() const;
@@ -127,7 +127,6 @@ private:
     QmlPane *m_qmlPane = nullptr;
     QDockWidget *m_qmlDock = nullptr;
     QAction *m_qmlModeAct = nullptr;
-    QPushButton *m_stretchBtn = nullptr; ///< fill the QML screen tab with the preview
     bool m_qmlMode = false;
 
     QGroupBox *m_propsBox = nullptr;
