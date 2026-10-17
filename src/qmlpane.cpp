@@ -13,6 +13,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileSystemModel>
+#include <QGroupBox>
 #include <QFontDatabase>
 #include <QHash>
 #include <QHBoxLayout>
@@ -23,7 +24,9 @@
 #include <QMenu>
 #include <QMimeData>
 #include <QQmlComponent>
+#include <QQmlContext>
 #include <QQmlEngine>
+#include <QQmlPropertyMap>
 #include <QQmlError>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -36,6 +39,8 @@
 #include <QShortcut>
 #include <QSplitter>
 #include <QTabWidget>
+#include <QTableWidget>
+#include <QTableWidgetItem>
 #include <QTimer>
 #include <QTreeView>
 #include <QUrl>
@@ -132,9 +137,19 @@ import QtQuick
 import QtQuick.Controls
 
 ApplicationWindow {
+    id: root
     width: 128
     height: 160
     color: "#ffffff"
+
+    // Values from the C++ side (the "backend" map in the editor); the
+    // fallbacks keep this file runnable in any plain Qt Quick project.
+    readonly property string temp:
+        typeof backend !== "undefined" && backend.temp !== undefined
+            ? String(backend.temp) : "22.5"
+    readonly property string mode:
+        typeof backend !== "undefined" && backend.mode !== undefined
+            ? String(backend.mode) : "Home"
 
     Text {
         x: 6; y: 6
@@ -152,7 +167,14 @@ ApplicationWindow {
 
     Rectangle { x: 6; y: 22; width: 116; height: 1; color: "#000000" }
 
-    MenuButton { x: 6; y: 30; label: "1. Home" }
+    Text {
+        x: 6; y: 86
+        text: root.temp + " \u00B0C"
+        font.pixelSize: 16
+        renderType: Text.NativeRendering
+    }
+
+    MenuButton { x: 6; y: 30; label: "1. " + root.mode }
     MenuButton { x: 6; y: 54; label: "2. Settings" }
 
     Rectangle {
@@ -303,7 +325,48 @@ void QmlPane::buildUi()
     mainSplit->setSizes({200, 600});
     lay->addWidget(mainSplit, 1);
 
+    auto *varsBox = new QGroupBox(tr("Backend map (backend.* in QML)"));
+    auto *varsLay = new QVBoxLayout(varsBox);
+    m_varsTable = new QTableWidget(0, 2);
+    m_varsTable->setHorizontalHeaderLabels({tr("Key"), tr("Value")});
+    m_varsTable->horizontalHeader()->setStretchLastSection(true);
+    m_varsTable->verticalHeader()->setVisible(false);
+    m_varsTable->setMaximumHeight(90);
+    connect(m_varsTable, &QTableWidget::itemChanged, this, &QmlPane::onVarEdited);
+    varsLay->addWidget(m_varsTable);
+    auto *varsRow = new QHBoxLayout;
+    auto *addVar = new QPushButton(tr("+ Variable"));
+    auto *delVar = new QPushButton(tr("- Remove"));
+    connect(addVar, &QPushButton::clicked, this, [this] {
+        m_fillingVars = true;
+        const int r = m_varsTable->rowCount();
+        m_varsTable->insertRow(r);
+        QString key = QStringLiteral("key1");
+        for (int i = 1; m_vars->keys().contains(key); ++i)
+            key = QStringLiteral("key%1").arg(i + 1);
+        m_varsTable->setItem(r, 0, new QTableWidgetItem(key));
+        m_varsTable->setItem(r, 1, new QTableWidgetItem(QStringLiteral("0")));
+        m_fillingVars = false;
+        applyVarsFromTable();
+    });
+    connect(delVar, &QPushButton::clicked, this, [this] {
+        const int r = m_varsTable->currentRow();
+        if (r < 0)
+            return;
+        m_fillingVars = true;
+        m_varsTable->removeRow(r);
+        m_fillingVars = false;
+        applyVarsFromTable();
+    });
+    varsRow->addWidget(addVar);
+    varsRow->addWidget(delVar);
+    varsRow->addStretch(1);
+    varsLay->addLayout(varsRow);
+    lay->addWidget(varsBox);
+
     m_engine = new QQmlEngine(this);
+    m_vars = QQmlPropertyMap::create(this); // plain ctor lacks QML integration
+    m_engine->rootContext()->setContextProperty(QStringLiteral("backend"), m_vars);
     m_interceptor = new QrcUrlInterceptor;
     m_engine->addUrlInterceptor(m_interceptor);
     connect(m_engine, &QQmlEngine::warnings, this, [this](const QList<QQmlError> &warnings) {
@@ -511,6 +574,8 @@ void QmlPane::loadDemoProject()
         out.write(f.second);
     }
     openProjectDir(m_tempDir.path(), QStringLiteral("main.qml"));
+    setVars({{QStringLiteral("temp"), 22.5},
+             {QStringLiteral("mode"), QStringLiteral("Home")}});
 }
 
 bool QmlPane::writeEntrySource(const QString &code)
@@ -706,6 +771,71 @@ void QmlPane::newFile()
     f.write("import QtQuick\n\nRectangle {\n}\n");
     f.close();
     openFile(name);
+}
+
+QVariantMap QmlPane::vars() const
+{
+    QVariantMap out;
+    if (!m_vars)
+        return out;
+    const QStringList keys = m_vars->keys();
+    for (const QString &k : keys)
+        out.insert(k, m_vars->value(k));
+    return out;
+}
+
+void QmlPane::setVars(const QVariantMap &vars)
+{
+    if (!m_varsTable)
+        return;
+    m_fillingVars = true;
+    m_varsTable->setRowCount(int(vars.size()));
+    int r = 0;
+    for (auto it = vars.cbegin(); it != vars.cend(); ++it, ++r) {
+        m_varsTable->setItem(r, 0, new QTableWidgetItem(it.key()));
+        m_varsTable->setItem(r, 1, new QTableWidgetItem(it.value().toString()));
+    }
+    m_fillingVars = false;
+    applyVars(vars);
+}
+
+void QmlPane::applyVars(const QVariantMap &vars)
+{
+    if (!m_vars)
+        return;
+    const QStringList old = m_vars->keys();
+    for (const QString &k : old)
+        m_vars->clear(k);
+    for (auto it = vars.cbegin(); it != vars.cend(); ++it)
+        m_vars->insert(it.key(), it.value());
+}
+
+void QmlPane::applyVarsFromTable()
+{
+    QVariantMap vars;
+    for (int r = 0; r < m_varsTable->rowCount(); ++r) {
+        const QTableWidgetItem *keyItem = m_varsTable->item(r, 0);
+        const QTableWidgetItem *valItem = m_varsTable->item(r, 1);
+        if (!keyItem)
+            continue;
+        const QString key = keyItem->text().trimmed();
+        if (key.isEmpty())
+            continue;
+        const QString val = valItem ? valItem->text().trimmed() : QString();
+        bool isNumber = false;
+        const double d = val.toDouble(&isNumber);
+        vars.insert(key, (isNumber && !val.isEmpty()) ? QVariant(d) : QVariant(val));
+    }
+    applyVars(vars);
+    emit varsEdited();
+}
+
+void QmlPane::onVarEdited(QTableWidgetItem *item)
+{
+    Q_UNUSED(item);
+    if (m_fillingVars)
+        return;
+    applyVarsFromTable();
 }
 
 void QmlPane::reloadNow()

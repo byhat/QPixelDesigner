@@ -301,6 +301,7 @@ void MainWindow::buildUi()
     m_qmlPane->loadDemoProject();
     connect(m_qmlPane, &QmlPane::frameUpdated, this, &MainWindow::onQmlFrame);
     connect(m_qmlPane, &QmlPane::sourceEdited, this, &MainWindow::markDirty);
+    connect(m_qmlPane, &QmlPane::varsEdited, this, &MainWindow::markDirty);
 
     m_qmlScroll->setWidget(m_qmlPane->previewWidget());
     QTimer::singleShot(0, this, &MainWindow::fitQmlPreview);
@@ -1138,6 +1139,7 @@ bool MainWindow::saveProject()
         root["mode"] = QStringLiteral("qml");
         root["qmlDir"] = m_qmlPane->projectDir();
         root["qmlEntry"] = m_qmlPane->entryFile();
+        root["qmlVars"] = QJsonObject::fromVariantMap(m_qmlPane->vars());
     } else {
         root["mode"] = QStringLiteral("layout");
         QJsonArray arr;
@@ -1222,6 +1224,8 @@ void MainWindow::openProject()
                                      tr("QML folder %1 not found, loading the demo project").arg(dir));
             m_qmlPane->loadDemoProject();
         }
+        if (root.contains(QLatin1String("qmlVars")))
+            m_qmlPane->setVars(root["qmlVars"].toObject().toVariantMap());
         const QString legacy = root["qml"].toString();
         if (!legacy.isEmpty())
             m_qmlPane->writeEntrySource(legacy);

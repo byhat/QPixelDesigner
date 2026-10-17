@@ -47,6 +47,28 @@ rendered scene on the same pixel grid; switching tabs switches modes.
 - QML errors and warnings are logged with file/line/column; on error the
   canvas keeps the last good frame.
 - The "New file" button creates a .qml file in the project folder.
+- **Backend map**: the table at the bottom of the panel edits a
+  `QQmlPropertyMap` exposed to QML as `backend` — an imitation of the C++
+  side. Add keys and values, and every `backend.<key>` binding in the
+  scene updates live. Values that look numeric are passed as numbers.
+  The map is saved into the project session (`"qmlVars"` in .pixui.json).
+
+To keep QML files portable into a real project, reference the map with a
+fallback (the demo shows the pattern):
+
+```qml
+readonly property string temp:
+    typeof backend !== "undefined" && backend.temp !== undefined
+        ? String(backend.temp) : "22.5"
+```
+
+Without the editor (e.g. in Qt Creator) the fallback values kick in and
+the file renders unchanged; in the real project `backend` maps to the
+actual context property or the same `QQmlPropertyMap`.
+
+The entry scene root can be an `ApplicationWindow` as well as a plain
+Item; `ApplicationWindow` scenes are rendered through a hidden
+`QQuickWindow` of exact screen size.
 
 The code editor follows Qt Creator basics:
 

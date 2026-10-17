@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QImage>
+#include <QVariantMap>
 #include <QString>
 #include <QTemporaryDir>
 #include <QUrl>
@@ -9,6 +10,9 @@
 
 class QComboBox;
 class QFileSystemModel;
+class QQmlPropertyMap;
+class QTableWidget;
+class QTableWidgetItem;
 class QLabel;
 class QQmlEngine;
 class QPlainTextEdit;
@@ -55,6 +59,9 @@ public:
     QString logText() const;
     QImage lastFrame() const { return m_lastFrame; }
 
+    QVariantMap vars() const;            ///< current backend.* map contents
+    void setVars(const QVariantMap &vars); ///< replace map and editor contents
+
     /**
      * @brief Stable host widget for the central preview area.
      *
@@ -69,6 +76,7 @@ public:
 signals:
     void frameUpdated(const QImage &image); ///< new frame after post-processing
     void sourceEdited();
+    void varsEdited(); ///< backend.* map changed from the editor
 
 public slots:
     void reloadNow(); ///< save the active file and reload the scene
@@ -87,11 +95,14 @@ private:
     void updateEntryLabel();
     void scanQrc(); ///< rebuild the qrc:/ -> file mapping from *.qrc files
     void rebuildPreview(const QUrl &url); ///< reload the visible preview for both root kinds
+    void applyVars(const QVariantMap &vars); ///< replace the context property map
+    void applyVarsFromTable();              ///< rebuild the map from the editor table
     void newFile();
     void appendLog(const QString &line);
 
 private slots:
     void onTextChanged(); ///< dirty mark on the tab, debounce autosave
+    void onVarEdited(QTableWidgetItem *item);
 
 private:
     QTreeView *m_tree = nullptr;
@@ -107,6 +118,9 @@ private:
     QQmlEngine *m_engine = nullptr;
     QrcUrlInterceptor *m_interceptor = nullptr;
     QComboBox *m_snapCombo = nullptr; ///< FrameSnap mode selector
+    QQmlPropertyMap *m_vars = nullptr; ///< the "backend" map exposed to QML
+    QTableWidget *m_varsTable = nullptr;
+    bool m_fillingVars = false;
     QLabel *m_entryLabel = nullptr;   ///< current entry file
     QTimer m_debounce;                ///< typing-to-autosave delay
     QTimer m_grabTimer;               ///< periodic frame capture
