@@ -22,12 +22,15 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMimeData>
-#include <QPainter>
+#include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQmlError>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QPainter>
+#include <QPixmap>
 #include <QQuickWidget>
+#include <QQuickWindow>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include <QShortcut>
@@ -37,7 +40,39 @@
 #include <QTreeView>
 #include <QUrl>
 #include <QVBoxLayout>
+#include <QWidget>
 #include <QXmlStreamReader>
+
+/** @brief Paints scene frames grabbed from a hidden QQuickWindow
+ *  (ApplicationWindow roots cannot live inside a QQuickWidget). */
+class QmlFrameView : public QWidget
+{
+public:
+    using QWidget::QWidget;
+
+    void setFrame(const QImage &img)
+    {
+        m_pix = QPixmap::fromImage(img);
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.fillRect(rect(), Qt::white);
+        if (m_pix.isNull())
+            return;
+        const double s = qMin(width() / double(m_pix.width()),
+                              height() / double(m_pix.height()));
+        const int w = qMax(1, int(m_pix.width() * s));
+        const int h = qMax(1, int(m_pix.height() * s));
+        p.drawPixmap(QRect((width() - w) / 2, (height() - h) / 2, w, h), m_pix);
+    }
+
+private:
+    QPixmap m_pix;
+};
 
 /** @brief Threshold frame processing: Qt Quick antialiasing renders small
  *  text as gray pixels that do not exist on a pixel display. GrayToBw
@@ -94,8 +129,11 @@ private:
 
 static const char *kDemoMain = R"QML(// Coordinates are in screen pixels.
 import QtQuick
+import QtQuick.Controls
 
-Rectangle {
+ApplicationWindow {
+    width: 128
+    height: 160
     color: "#ffffff"
 
     Text {
@@ -290,11 +328,17 @@ void QmlPane::buildUi()
     connect(&m_debounce, &QTimer::timeout, this, &QmlPane::reloadNow);
 
     connect(&m_grabTimer, &QTimer::timeout, this, [this] {
-        if (!m_quick || m_quick->status() != QQuickWidget::Ready)
-            return;
-        QImage img = m_quick->grabFramebuffer();
+        QImage img;
+        if (m_hiddenWindow)
+            img = m_hiddenWindow->grabWindow();
+        else if (m_quick && m_quick->status() == QQuickWidget::Ready)
+            img = m_quick->grabFramebuffer();
         if (img.isNull())
             return;
+        if (m_previewWindow && m_previewView) {
+            m_previewWindow->resize(m_previewView->size());
+            m_previewView->setFrame(m_previewWindow->grabWindow());
+        }
         if (img.size() != QSize(m_w, m_h))
             img = img.scaled(m_w, m_h, Qt::IgnoreAspectRatio, Qt::FastTransformation);
         img = snapFrame(img, FrameSnap(m_snapCombo->currentIndex()));
@@ -323,23 +367,55 @@ void QmlPane::buildUi()
     connect(f5, &QShortcut::activated, this, &QmlPane::reloadNow);
 }
 
-QQuickWidget *QmlPane::previewWidget()
+QWidget *QmlPane::previewWidget()
 {
-    if (!m_previewQuick) {
-        m_previewQuick = new QQuickWidget(m_engine, nullptr);
-        m_previewQuick->setResizeMode(QQuickWidget::SizeRootObjectToView);
-        m_previewQuick->setClearColor(Qt::white);
-        m_previewQuick->setFixedSize(m_w, m_h);
-        connect(m_previewQuick, &QQuickWidget::statusChanged, this,
-                [this](QQuickWidget::Status st) {
-                    if (st == QQuickWidget::Error)
-                        for (const auto &err : m_previewQuick->errors())
-                            appendLog(err.toString());
-                });
+    if (!m_previewHost) {
+        m_previewHost = new QWidget(nullptr);
+        auto *lay = new QVBoxLayout(m_previewHost);
+        lay->setContentsMargins(0, 0, 0, 0);
         if (!m_dir.isEmpty() && !m_entry.isEmpty())
-            m_previewQuick->setSource(QUrl::fromLocalFile(QDir(m_dir).filePath(m_entry)));
+            rebuildPreview(QUrl::fromLocalFile(QDir(m_dir).filePath(m_entry)));
     }
-    return m_previewQuick;
+    return m_previewHost;
+}
+
+// Видимое превью поддерживает оба вида корня: Item рендерится в QQuickWidget,
+// ApplicationWindow (QQuickWindow) встраивается через createWindowContainer.
+void QmlPane::rebuildPreview(const QUrl &url)
+{
+    if (!m_previewHost)
+        return;
+    auto *lay = static_cast<QVBoxLayout *>(m_previewHost->layout());
+    while (lay->count() > 0)
+        delete lay->takeAt(0)->widget();
+    m_previewWindow = nullptr;
+    m_previewView = nullptr;
+
+    QQmlComponent comp(m_engine, url);
+    if (comp.isError()) {
+        for (const auto &e : comp.errors())
+            appendLog(e.toString());
+        return;
+    }
+    QObject *root = comp.create();
+    if (auto *win = qobject_cast<QQuickWindow *>(root)) {
+        m_previewWindow = win;
+        m_previewView = new QmlFrameView;
+        lay->addWidget(m_previewView);
+        return;
+    }
+    delete root;
+
+    auto *qw = new QQuickWidget(m_engine, nullptr);
+    qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    qw->setClearColor(Qt::white);
+    connect(qw, &QQuickWidget::statusChanged, this, [this, qw](QQuickWidget::Status st) {
+        if (st == QQuickWidget::Error)
+            for (const auto &err : qw->errors())
+                appendLog(err.toString());
+    });
+    qw->setSource(url);
+    lay->addWidget(qw);
 }
 
 void QmlPane::setActive(bool active)
@@ -383,6 +459,8 @@ void QmlPane::setScreenSize(int width, int height)
     m_h = height;
     if (m_quick)
         m_quick->setFixedSize(m_w, m_h);
+    if (m_hiddenWindow)
+        m_hiddenWindow->resize(m_w, m_h);
 }
 
 bool QmlPane::openProjectDir(const QString &dir, const QString &entry)
@@ -641,14 +719,30 @@ void QmlPane::reloadNow()
     scanQrc();
     m_engine->clearComponentCache();
     const QUrl url = QUrl::fromLocalFile(QDir(m_dir).filePath(m_entry));
+
+    // скрытый рендерер 1:1: ApplicationWindow -> собственное скрытое окно,
+    // Item -> скрытый QQuickWidget
+    delete m_hiddenRoot;
+    m_hiddenWindow = nullptr;
     m_quick->setSource(QUrl());
-    m_quick->setSource(url);
-    if (m_quick->status() == QQuickWidget::Error) {
-        for (const auto &err : m_quick->errors())
-            appendLog(err.toString());
+    QQmlComponent comp(m_engine, url);
+    if (comp.isError()) {
+        for (const auto &e : comp.errors())
+            appendLog(e.toString());
+    } else if (QObject *root = comp.create()) {
+        if (auto *win = qobject_cast<QQuickWindow *>(root)) {
+            m_hiddenRoot = root;
+            m_hiddenWindow = win;
+            win->resize(m_w, m_h);
+        } else {
+            delete root;
+            m_quick->setSource(url);
+            if (m_quick->status() == QQuickWidget::Error) {
+                for (const auto &err : m_quick->errors())
+                    appendLog(err.toString());
+            }
+        }
     }
-    if (m_previewQuick) {
-        m_previewQuick->setSource(QUrl());
-        m_previewQuick->setSource(url);
-    }
+
+    rebuildPreview(url);
 }

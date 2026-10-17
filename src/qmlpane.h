@@ -3,6 +3,7 @@
 #include <QImage>
 #include <QString>
 #include <QTemporaryDir>
+#include <QUrl>
 #include <QTimer>
 #include <QWidget>
 
@@ -12,6 +13,8 @@ class QLabel;
 class QQmlEngine;
 class QPlainTextEdit;
 class QQuickWidget;
+class QmlFrameView;
+class QQuickWindow;
 class QTabWidget;
 class QTreeView;
 class QrcUrlInterceptor;
@@ -53,13 +56,15 @@ public:
     QImage lastFrame() const { return m_lastFrame; }
 
     /**
-     * @brief Visible live scene renderer for the central preview area.
+     * @brief Stable host widget for the central preview area.
      *
-     * Shows the raw Qt Quick render: no pixel grid, no frame post-processing,
-     * resized by the owner to screen size x zoom. The hidden 1:1 renderer
-     * stays in the pane and keeps feeding device-true frames.
+     * Hosts either a QQuickWidget (Item root, e.g. Rectangle) or a window
+     * container (ApplicationWindow root); swapped automatically on reload.
+     * Shows the raw Qt Quick render: no pixel grid, no post-processing;
+     * resized by the owner, keeping the display aspect ratio. The hidden
+     * 1:1 renderer stays in the pane and keeps feeding device-true frames.
      */
-    QQuickWidget *previewWidget();
+    QWidget *previewWidget();
 
 signals:
     void frameUpdated(const QImage &image); ///< new frame after post-processing
@@ -81,6 +86,7 @@ private:
     void pickDefaultEntry();
     void updateEntryLabel();
     void scanQrc(); ///< rebuild the qrc:/ -> file mapping from *.qrc files
+    void rebuildPreview(const QUrl &url); ///< reload the visible preview for both root kinds
     void newFile();
     void appendLog(const QString &line);
 
@@ -92,8 +98,12 @@ private:
     QFileSystemModel *m_fsModel = nullptr;
     QTabWidget *m_tabs = nullptr;
     QPlainTextEdit *m_log = nullptr;
-    QQuickWidget *m_quick = nullptr; ///< hidden offscreen scene renderer
-    QQuickWidget *m_previewQuick = nullptr; ///< visible renderer, owned by the caller
+    QQuickWidget *m_quick = nullptr; ///< hidden renderer for Item roots
+    QQuickWindow *m_hiddenWindow = nullptr; ///< hidden renderer for ApplicationWindow roots
+    QQuickWindow *m_previewWindow = nullptr; ///< hidden renderer feeding the visible preview
+    QObject *m_hiddenRoot = nullptr;  ///< component instance owning m_hiddenWindow
+    QWidget *m_previewHost = nullptr; ///< stable host, given to the main window
+    QmlFrameView *m_previewView = nullptr; ///< paints the preview window frames
     QQmlEngine *m_engine = nullptr;
     QrcUrlInterceptor *m_interceptor = nullptr;
     QComboBox *m_snapCombo = nullptr; ///< FrameSnap mode selector
