@@ -22,6 +22,7 @@ class QLineEdit;
 class QListWidget;
 class QPushButton;
 class QSpinBox;
+class QStackedWidget;
 class QTabWidget;
 class QModelIndex;
 class PreviewWindow;
@@ -43,6 +44,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private slots:
     void addElement(ElementKind kind);
@@ -89,7 +91,7 @@ private:
     void syncPresetCombo(); ///< select the combo entry for the current screen size
     void syncCounters();    ///< element-name counters, derived from name suffixes
     void setColorButton(QPushButton *button, const QColor &color);
-    void updateQmlPreviewSize(); ///< resize the live QML preview to screen x zoom
+    void fitQmlPreview(); ///< stretch the live QML preview to the tab viewport
     void moveLayerStep(int dir); ///< move layer up for dir > 0, down for dir < 0
     std::vector<int> selSorted() const;  ///< selected indices, ascending
     int maxGroupId() const;
@@ -108,6 +110,8 @@ private:
     bool m_updating = false;          ///< re-entrancy guard for UI sync
 
     ScreenCanvas *m_canvas = nullptr;     ///< layout editing canvas
+    ScreenCanvas *m_qmlCanvas = nullptr;  ///< raster QML frames with the pixel grid
+    QStackedWidget *m_stack = nullptr;    ///< layout editor / pixel QML view (Layout tab)
     QScrollArea *m_qmlScroll = nullptr;   ///< host of the live QML preview widget
     QTabWidget *m_centralTabs = nullptr;  ///< "Layout" and "QML screen" tabs
     PreviewWindow *m_preview = nullptr;
