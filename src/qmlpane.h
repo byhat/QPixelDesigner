@@ -52,6 +52,15 @@ public:
     QString logText() const;
     QImage lastFrame() const { return m_lastFrame; }
 
+    /**
+     * @brief Visible live scene renderer for the central preview area.
+     *
+     * Shows the raw Qt Quick render: no pixel grid, no frame post-processing,
+     * resized by the owner to screen size x zoom. The hidden 1:1 renderer
+     * stays in the pane and keeps feeding device-true frames.
+     */
+    QQuickWidget *previewWidget();
+
 signals:
     void frameUpdated(const QImage &image); ///< new frame after post-processing
     void sourceEdited();
@@ -84,6 +93,7 @@ private:
     QTabWidget *m_tabs = nullptr;
     QPlainTextEdit *m_log = nullptr;
     QQuickWidget *m_quick = nullptr; ///< hidden offscreen scene renderer
+    QQuickWidget *m_previewQuick = nullptr; ///< visible renderer, owned by the caller
     QQmlEngine *m_engine = nullptr;
     QrcUrlInterceptor *m_interceptor = nullptr;
     QComboBox *m_snapCombo = nullptr; ///< FrameSnap mode selector

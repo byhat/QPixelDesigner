@@ -14,6 +14,7 @@
 class QAction;
 class QCheckBox;
 class QComboBox;
+class QScrollArea;
 class QDockWidget;
 class QGroupBox;
 class QLabel;
@@ -88,6 +89,7 @@ private:
     void syncPresetCombo(); ///< select the combo entry for the current screen size
     void syncCounters();    ///< element-name counters, derived from name suffixes
     void setColorButton(QPushButton *button, const QColor &color);
+    void updateQmlPreviewSize(); ///< resize the live QML preview to screen x zoom
     void moveLayerStep(int dir); ///< move layer up for dir > 0, down for dir < 0
     std::vector<int> selSorted() const;  ///< selected indices, ascending
     int maxGroupId() const;
@@ -106,7 +108,7 @@ private:
     bool m_updating = false;          ///< re-entrancy guard for UI sync
 
     ScreenCanvas *m_canvas = nullptr;     ///< layout editing canvas
-    ScreenCanvas *m_qmlCanvas = nullptr;  ///< display-only canvas for QML frames
+    QScrollArea *m_qmlScroll = nullptr;   ///< host of the live QML preview widget
     QTabWidget *m_centralTabs = nullptr;  ///< "Layout" and "QML screen" tabs
     PreviewWindow *m_preview = nullptr;
     QListWidget *m_list = nullptr;      ///< layer list

@@ -323,6 +323,24 @@ void QmlPane::buildUi()
     connect(f5, &QShortcut::activated, this, &QmlPane::reloadNow);
 }
 
+QQuickWidget *QmlPane::previewWidget()
+{
+    if (!m_previewQuick) {
+        m_previewQuick = new QQuickWidget(m_engine, nullptr);
+        m_previewQuick->setResizeMode(QQuickWidget::SizeRootObjectToView);
+        m_previewQuick->setClearColor(Qt::white);
+        connect(m_previewQuick, &QQuickWidget::statusChanged, this,
+                [this](QQuickWidget::Status st) {
+                    if (st == QQuickWidget::Error)
+                        for (const auto &err : m_previewQuick->errors())
+                            appendLog(err.toString());
+                });
+        if (!m_dir.isEmpty() && !m_entry.isEmpty())
+            m_previewQuick->setSource(QUrl::fromLocalFile(QDir(m_dir).filePath(m_entry)));
+    }
+    return m_previewQuick;
+}
+
 void QmlPane::setActive(bool active)
 {
     if (active)
@@ -621,10 +639,15 @@ void QmlPane::reloadNow()
     m_log->clear();
     scanQrc();
     m_engine->clearComponentCache();
+    const QUrl url = QUrl::fromLocalFile(QDir(m_dir).filePath(m_entry));
     m_quick->setSource(QUrl());
-    m_quick->setSource(QUrl::fromLocalFile(QDir(m_dir).filePath(m_entry)));
+    m_quick->setSource(url);
     if (m_quick->status() == QQuickWidget::Error) {
         for (const auto &err : m_quick->errors())
             appendLog(err.toString());
+    }
+    if (m_previewQuick) {
+        m_previewQuick->setSource(QUrl());
+        m_previewQuick->setSource(url);
     }
 }

@@ -34,8 +34,7 @@ public:
     int selectionCount() const { return m_sel.size(); }
     int primaryIndex() const; ///< the only selected element, or -1
 
-    void setExternalImage(const QImage &img); ///< draw a QML frame instead of the model
-    QImage renderScreenImage() const;         ///< 1:1 model render
+    QImage renderScreenImage() const; ///< 1:1 model render
 
     QSize sizeHint() const override;
 
@@ -70,7 +69,6 @@ private:
 
     QSet<int> m_sel;    ///< selected model indices
     int m_primary = -1; ///< index used by the properties panel
-    QImage m_external;  ///< QML-mode frame; null renders the model
 
     Drag m_drag = Drag::None;
     int m_corner = 0;

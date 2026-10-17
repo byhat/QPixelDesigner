@@ -77,12 +77,6 @@ int ScreenCanvas::primaryIndex() const
     return -1;
 }
 
-void ScreenCanvas::setExternalImage(const QImage &img)
-{
-    m_external = img;
-    update();
-}
-
 QImage ScreenCanvas::renderScreenImage() const
 {
     if (!m_elements)
@@ -159,12 +153,7 @@ void ScreenCanvas::paintEvent(QPaintEvent *)
     p.fillRect(rect(), QColor(43, 48, 58));
 
     const QRect sr(Margin, Margin, m_screenW * m_zoom, m_screenH * m_zoom);
-    QImage frame = m_external;
-    if (frame.isNull())
-        frame = renderScreenImage();
-    if (frame.size() != QSize(m_screenW, m_screenH))
-        frame = frame.scaled(m_screenW, m_screenH, Qt::IgnoreAspectRatio, Qt::FastTransformation);
-    p.drawImage(sr, frame);
+    p.drawImage(sr, renderScreenImage());
     p.setPen(QPen(QColor(130, 140, 155), 1));
     p.setBrush(Qt::NoBrush);
     p.drawRect(sr.adjusted(-1, -1, 1, 1));
