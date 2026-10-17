@@ -84,9 +84,29 @@ void MainWindow::buildUi()
     m_qmlScroll->setAlignment(Qt::AlignCenter);
     m_qmlScroll->viewport()->installEventFilter(this);
 
+    m_stretchBtn = new QPushButton(tr("Stretch"));
+    m_stretchBtn->setCheckable(true);
+    m_stretchBtn->setChecked(true);
+    m_stretchBtn->setToolTip(
+        tr("Scale the QML preview to fill the tab, keeping the display aspect ratio; "
+           "off shows it at screen size x zoom"));
+    connect(m_stretchBtn, &QPushButton::toggled, this,
+            [this] { applyQmlPreviewSize(); });
+
+    auto *qmlTab = new QWidget;
+    auto *qmlTabLay = new QVBoxLayout(qmlTab);
+    qmlTabLay->setContentsMargins(0, 0, 0, 0);
+    qmlTabLay->setSpacing(0);
+    auto *stretchRow = new QHBoxLayout;
+    stretchRow->setContentsMargins(6, 4, 6, 4);
+    stretchRow->addWidget(m_stretchBtn);
+    stretchRow->addStretch(1);
+    qmlTabLay->addLayout(stretchRow);
+    qmlTabLay->addWidget(m_qmlScroll, 1);
+
     m_centralTabs = new QTabWidget;
     m_centralTabs->addTab(m_stack, tr("Layout"));
-    m_centralTabs->addTab(m_qmlScroll, tr("QML screen"));
+    m_centralTabs->addTab(qmlTab, tr("QML screen"));
     m_centralTabs->setTabEnabled(1, false);
     connect(m_centralTabs, &QTabWidget::currentChanged, this, &MainWindow::onPreviewTabChanged);
     setCentralWidget(m_centralTabs);
@@ -303,7 +323,7 @@ void MainWindow::buildUi()
     connect(m_qmlPane, &QmlPane::sourceEdited, this, &MainWindow::markDirty);
 
     m_qmlScroll->setWidget(m_qmlPane->previewWidget());
-    QTimer::singleShot(0, this, &MainWindow::fitQmlPreview);
+    QTimer::singleShot(0, this, &MainWindow::applyQmlPreviewSize);
 
     m_qmlDock = new QDockWidget(tr("QML editor"), this);
     m_qmlDock->setWidget(m_qmlPane);
@@ -920,7 +940,7 @@ void MainWindow::setQmlMode(bool on)
     m_centralTabs->setTabEnabled(1, on);
     // переход в режим заменяет центральное превью на QML-превью
     m_centralTabs->setCurrentIndex(on ? 1 : 0);
-    QTimer::singleShot(0, this, &MainWindow::fitQmlPreview);
+    QTimer::singleShot(0, this, &MainWindow::applyQmlPreviewSize);
 }
 
 void MainWindow::onQmlFrame(const QImage &frame)
@@ -937,7 +957,7 @@ void MainWindow::onQmlFrame(const QImage &frame)
 void MainWindow::onPreviewTabChanged(int index)
 {
     if (index == 1)
-        QTimer::singleShot(0, this, &MainWindow::fitQmlPreview);
+        QTimer::singleShot(0, this, &MainWindow::applyQmlPreviewSize);
     if (m_qmlMode)
         m_lastRender = m_qmlFrame;
     else
@@ -967,7 +987,7 @@ void MainWindow::applyScreenSize(int width, int height)
     m_canvas->setScreenSize(width, height);
     m_qmlCanvas->setScreenSize(width, height);
     m_qmlPane->setScreenSize(width, height);
-    QTimer::singleShot(0, this, &MainWindow::fitQmlPreview);
+    QTimer::singleShot(0, this, &MainWindow::applyQmlPreviewSize);
     m_sizeLabel->setText(tr("Screen: %1x%2 px").arg(m_screenW).arg(m_screenH));
     syncPresetCombo();
 }
@@ -1020,14 +1040,20 @@ void MainWindow::setZoom(int zoom)
         m_canvas->setZoom(zoom);
     if (zoom != m_qmlCanvas->zoom())
         m_qmlCanvas->setZoom(zoom);
+    applyQmlPreviewSize();
     if (m_zoomSpin->value() != zoom)
         m_zoomSpin->setValue(zoom);
 }
 
-void MainWindow::fitQmlPreview()
+void MainWindow::applyQmlPreviewSize()
 {
     if (!m_qmlPane)
         return;
+    if (!m_stretchBtn->isChecked()) {
+        const int z = m_canvas->zoom();
+        m_qmlPane->previewWidget()->setFixedSize(m_screenW * z, m_screenH * z);
+        return;
+    }
     const QSize vp = m_qmlScroll->viewport()->size();
     if (vp.isEmpty())
         return;
@@ -1039,7 +1065,7 @@ void MainWindow::fitQmlPreview()
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == m_qmlScroll->viewport() && event->type() == QEvent::Resize)
-        fitQmlPreview();
+        applyQmlPreviewSize();
     return QMainWindow::eventFilter(watched, event);
 }
 
