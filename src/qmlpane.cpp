@@ -329,6 +329,7 @@ QQuickWidget *QmlPane::previewWidget()
         m_previewQuick = new QQuickWidget(m_engine, nullptr);
         m_previewQuick->setResizeMode(QQuickWidget::SizeRootObjectToView);
         m_previewQuick->setClearColor(Qt::white);
+        m_previewQuick->setFixedSize(m_w, m_h);
         connect(m_previewQuick, &QQuickWidget::statusChanged, this,
                 [this](QQuickWidget::Status st) {
                     if (st == QQuickWidget::Error)

@@ -303,6 +303,7 @@ void MainWindow::buildUi()
     connect(m_qmlPane, &QmlPane::sourceEdited, this, &MainWindow::markDirty);
 
     m_qmlScroll->setWidget(m_qmlPane->previewWidget());
+    QTimer::singleShot(0, this, &MainWindow::fitQmlPreview);
 
     m_qmlDock = new QDockWidget(tr("QML editor"), this);
     m_qmlDock->setWidget(m_qmlPane);
@@ -906,9 +907,13 @@ void MainWindow::setQmlMode(bool on)
         return;
     m_qmlMode = on;
 
-    // режим включает и выключает только редактор QML-проекта;
-    // макет остаётся доступным для правки в любой момент
+    // QML-режим полностью переключает работу на QML-проект: редактор
+    // макета (док слоёв, кнопки элементов, фон) прячется до возврата
     m_qmlDock->setVisible(on);
+    m_elemDock->setVisible(!on);
+    for (QAction *a : m_elementActs)
+        a->setEnabled(!on);
+    m_bgBtn->setEnabled(!on);
     m_qmlPane->setActive(on);
     m_qmlPane->setScreenSize(m_screenW, m_screenH);
     m_stack->setCurrentIndex(on ? 1 : 0);
@@ -931,7 +936,8 @@ void MainWindow::onQmlFrame(const QImage &frame)
 
 void MainWindow::onPreviewTabChanged(int index)
 {
-    Q_UNUSED(index);
+    if (index == 1)
+        QTimer::singleShot(0, this, &MainWindow::fitQmlPreview);
     if (m_qmlMode)
         m_lastRender = m_qmlFrame;
     else
