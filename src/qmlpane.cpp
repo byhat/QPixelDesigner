@@ -351,7 +351,7 @@ void QmlPane::buildUi()
     });
     connect(delVar, &QPushButton::clicked, this, [this] {
         const int r = m_varsTable->currentRow();
-        if (r < 0)
+            if (r < 0)
             return;
         m_fillingVars = true;
         m_varsTable->removeRow(r);
@@ -775,13 +775,7 @@ void QmlPane::newFile()
 
 QVariantMap QmlPane::vars() const
 {
-    QVariantMap out;
-    if (!m_vars)
-        return out;
-    const QStringList keys = m_vars->keys();
-    for (const QString &k : keys)
-        out.insert(k, m_vars->value(k));
-    return out;
+    return m_varsContent;
 }
 
 void QmlPane::setVars(const QVariantMap &vars)
@@ -801,13 +795,19 @@ void QmlPane::setVars(const QVariantMap &vars)
 
 void QmlPane::applyVars(const QVariantMap &vars)
 {
-    if (!m_vars)
-        return;
-    const QStringList old = m_vars->keys();
-    for (const QString &k : old)
-        m_vars->clear(k);
+    // QQmlPropertyMap::clear() keeps the key with an empty value, and the
+    // engine re-materializes properties the scene has read, so the QML
+    // object cannot serve as the source of truth. The map is rebuilt from
+    // scratch on every change and m_varsContent keeps the exact contents.
+    m_varsContent = vars;
+    auto *fresh = QQmlPropertyMap::create(this);
     for (auto it = vars.cbegin(); it != vars.cend(); ++it)
-        m_vars->insert(it.key(), it.value());
+        fresh->insert(it.key(), it.value());
+    m_engine->rootContext()->setContextProperty(QStringLiteral("backend"), fresh);
+    QQmlPropertyMap *old = m_vars;
+    m_vars = fresh;
+    if (old)
+        old->deleteLater();
 }
 
 void QmlPane::applyVarsFromTable()

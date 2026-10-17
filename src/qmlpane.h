@@ -119,6 +119,7 @@ private:
     QrcUrlInterceptor *m_interceptor = nullptr;
     QComboBox *m_snapCombo = nullptr; ///< FrameSnap mode selector
     QQmlPropertyMap *m_vars = nullptr; ///< the "backend" map exposed to QML
+    QVariantMap m_varsContent; ///< authoritative contents; the QML object may keep ghost keys
     QTableWidget *m_varsTable = nullptr;
     bool m_fillingVars = false;
     QLabel *m_entryLabel = nullptr;   ///< current entry file
