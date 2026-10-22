@@ -82,14 +82,15 @@ The code editor follows Qt Creator basics:
 | Tab / Shift+Tab | indents / dedents lines by 4 spaces (selection-aware) |
 | Ctrl+/ | toggles `//` comments |
 
-Qt Quick antialiasing renders small text in gray, so frames are
-post-processed (combo box in the QML panel):
+Frame post-processing (combo box in the QML panel). The default is
+"No processing": the frame is shown exactly as the display would render
+it, antialiased grays included:
 
 | Mode | Action |
 |---|---|
-| Gray -> B/W | gray pixels become black/white, colors preserved |
+| Gray -> B/W | binarizes gray pixels (1-bit feel), destroys image gradients |
 | Full 1-bit | whole frame in black and white (monochrome emulation) |
-| No processing | frame unchanged |
+| No processing | frame unchanged (default) |
 
 Using `renderType: Text.NativeRendering` in scene code is recommended —
 native font rendering instead of distance-field.

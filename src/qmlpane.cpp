@@ -223,6 +223,20 @@ static const char *kDemoQrc = R"XML(<RCC>
 </RCC>
 )XML";
 
+// ApplicationWindow ignores resizes after creation, so instances are
+// created directly at the target size.
+static QQuickWindow *createSceneWindow(QQmlEngine *engine, const QUrl &url, const QSize &size)
+{
+    QQmlComponent comp(engine, url);
+    if (comp.isError())
+        return nullptr;
+    const QVariantMap init{{QStringLiteral("width"), size.width()},
+                           {QStringLiteral("height"), size.height()}};
+    QObject *root = comp.createWithInitialProperties(init);
+    QQmlEngine::setObjectOwnership(root, QQmlEngine::CppOwnership);
+    return qobject_cast<QQuickWindow *>(root);
+}
+
 QmlPane::QmlPane(QWidget *parent)
     : QWidget(parent)
 {
@@ -253,8 +267,10 @@ void QmlPane::buildUi()
     m_snapCombo->addItem(tr("Gray -> B/W (LCD look)"));
     m_snapCombo->addItem(tr("Full 1-bit (monochrome)"));
     m_snapCombo->addItem(tr("No processing"));
-    m_snapCombo->setToolTip(tr("QML antialiasing renders small text in gray; "
-                               "the threshold turns gray pixels black/white and keeps colors"));
+    m_snapCombo->setCurrentIndex(2);
+    m_snapCombo->setToolTip(tr("Gray -> B/W binarizes gray pixels (1-bit feel) and "
+                               "destroys image gradients; No processing shows the "
+                               "frame exactly as the display would"));
     m_entryLabel = new QLabel;
     top->addWidget(openBtn);
     top->addWidget(newBtn);
@@ -392,16 +408,15 @@ void QmlPane::buildUi()
 
     connect(&m_grabTimer, &QTimer::timeout, this, [this] {
         QImage img;
-        if (m_hiddenWindow)
+        if (m_hiddenWindow) {
             img = m_hiddenWindow->grabWindow();
-        else if (m_quick && m_quick->status() == QQuickWidget::Ready)
+        } else if (m_quick && m_quick->status() == QQuickWidget::Ready) {
             img = m_quick->grabFramebuffer();
+        }
         if (img.isNull())
             return;
-        if (m_previewWindow && m_previewView) {
-            m_previewWindow->resize(m_previewView->size());
+        if (m_previewWindow && m_previewView)
             m_previewView->setFrame(m_previewWindow->grabWindow());
-        }
         if (img.size() != QSize(m_w, m_h))
             img = img.scaled(m_w, m_h, Qt::IgnoreAspectRatio, Qt::FastTransformation);
         img = snapFrame(img, FrameSnap(m_snapCombo->currentIndex()));
@@ -451,18 +466,23 @@ void QmlPane::rebuildPreview(const QUrl &url)
     auto *lay = static_cast<QVBoxLayout *>(m_previewHost->layout());
     while (lay->count() > 0)
         delete lay->takeAt(0)->widget();
+    delete m_previewWindow;
     m_previewWindow = nullptr;
     m_previewView = nullptr;
 
-    QQmlComponent comp(m_engine, url);
-    if (comp.isError()) {
-        for (const auto &e : comp.errors())
+    QQmlComponent probe(m_engine, url);
+    if (probe.isError()) {
+        for (const auto &e : probe.errors())
             appendLog(e.toString());
         return;
     }
-    QObject *root = comp.create();
-    if (auto *win = qobject_cast<QQuickWindow *>(root)) {
-        m_previewWindow = win;
+    QObject *root = probe.create();
+    QQmlEngine::setObjectOwnership(root, QQmlEngine::CppOwnership);
+    if (qobject_cast<QQuickWindow *>(root)) {
+        delete root;
+        // ApplicationWindow ignores resizes after creation, so the preview
+        // renders at a fixed 2x screen size and the view scales the frame
+        m_previewWindow = createSceneWindow(m_engine, url, QSize(m_w * 2, m_h * 2));
         m_previewView = new QmlFrameView;
         lay->addWidget(m_previewView);
         return;
@@ -518,12 +538,16 @@ void QmlPane::dropEvent(QDropEvent *event)
 
 void QmlPane::setScreenSize(int width, int height)
 {
+    if (width == m_w && height == m_h)
+        return;
     m_w = width;
     m_h = height;
     if (m_quick)
         m_quick->setFixedSize(m_w, m_h);
-    if (m_hiddenWindow)
-        m_hiddenWindow->resize(m_w, m_h);
+    // the hidden window is created at a fixed size, so a screen size change
+    // requires a reload to re-create the scene
+    if (!m_dir.isEmpty())
+        QTimer::singleShot(0, this, &QmlPane::reloadNow);
 }
 
 bool QmlPane::openProjectDir(const QString &dir, const QString &entry)
@@ -855,15 +879,15 @@ void QmlPane::reloadNow()
     delete m_hiddenRoot;
     m_hiddenWindow = nullptr;
     m_quick->setSource(QUrl());
-    QQmlComponent comp(m_engine, url);
-    if (comp.isError()) {
-        for (const auto &e : comp.errors())
+    QQmlComponent probe(m_engine, url);
+    if (probe.isError()) {
+        for (const auto &e : probe.errors())
             appendLog(e.toString());
-    } else if (QObject *root = comp.create()) {
-        if (auto *win = qobject_cast<QQuickWindow *>(root)) {
-            m_hiddenRoot = root;
-            m_hiddenWindow = win;
-            win->resize(m_w, m_h);
+    } else if (QObject *root = probe.create()) {
+        if (qobject_cast<QQuickWindow *>(root)) {
+            delete root;
+            m_hiddenWindow = createSceneWindow(m_engine, url, QSize(m_w, m_h));
+            m_hiddenRoot = m_hiddenWindow;
         } else {
             delete root;
             m_quick->setSource(url);
