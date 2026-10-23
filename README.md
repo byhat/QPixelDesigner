@@ -70,6 +70,29 @@ The entry scene root can be an `ApplicationWindow` as well as a plain
 Item; `ApplicationWindow` scenes are rendered through a hidden
 `QQuickWindow` of exact screen size.
 
+## Preview parity with real hardware
+
+The preview is calibrated to match what a real panel shows. Below is the
+same QML scene side by side: on the left the editor preview, on the right
+the ST7735 128x160 TFT it was designed for, driven by Qt Quick over a
+QPA plugin on an Orange Pi Zero 3.
+
+| In the editor | On the real display |
+|---|---|
+| ![Editor preview](docs/virtual.png) | ![Real display](docs/real.jpg) |
+
+Layout, fonts and colors match pixel for pixel (the panel is RGB565, so
+24-bit colors snap to their nearest 16-bit representation — e.g. `#e0e0e0`
+shows as `#e7e3e7`). To achieve this the hidden renderer pins the same
+conditions the embedded target has:
+
+- default font **DejaVu Sans 16 px** (the target resolves the unset QML
+  font to DejaVu Sans at 12 pt / 96 dpi);
+- Qt Quick Controls style **Basic** (no desktop theme style);
+- color scheme **Light** (the target has no platform theme, so a dark
+  desktop never leaks into the preview);
+- the software Qt Quick backend with native text rendering.
+
 The code editor follows Qt Creator basics:
 
 | Input | Behavior |

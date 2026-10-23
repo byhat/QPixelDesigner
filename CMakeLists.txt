@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets Qml Quick QuickWidgets)
+find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets Qml Quick QuickWidgets QuickControls2)
 
 add_executable(QPixelDesigner
     src/codeeditor.h
@@ -32,4 +32,5 @@ target_link_libraries(QPixelDesigner PRIVATE
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickWidgets
+    Qt6::QuickControls2
 )

@@ -223,6 +223,33 @@ static const char *kDemoQrc = R"XML(<RCC>
 </RCC>
 )XML";
 
+/**
+ * @brief Default scene font matching the target display.
+ *
+ * The qpast7735 board resolves the unset default font to DejaVu Sans at
+ * 12 pt / 96 dpi = 16 px. Desktop hosts substitute their own theme face
+ * (Nimbus Sans, Noto, ...) with different metrics, which changes implicit
+ * item sizes and breaks the 1:1 preview. pixelSize keeps the preview
+ * exact on any host screen DPI.
+ */
+static QFont sceneFont()
+{
+    if (!QFontDatabase::families().contains(QStringLiteral("DejaVu Sans"))) {
+        const QString candidates[] = {
+            QStringLiteral("/usr/share/fonts/TTF/DejaVuSans.ttf"),
+            QStringLiteral("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        };
+        for (const QString &path : candidates) {
+            if (QFile::exists(path)) {
+                QFontDatabase::addApplicationFont(path);
+            }
+        }
+    }
+    QFont font(QStringLiteral("DejaVu Sans"));
+    font.setPixelSize(16);
+    return font;
+}
+
 // ApplicationWindow ignores resizes after creation, so instances are
 // created directly at the target size.
 static QQuickWindow *createSceneWindow(QQmlEngine *engine, const QUrl &url, const QSize &size)
@@ -234,6 +261,10 @@ static QQuickWindow *createSceneWindow(QQmlEngine *engine, const QUrl &url, cons
                            {QStringLiteral("height"), size.height()}};
     QObject *root = comp.createWithInitialProperties(init);
     QQmlEngine::setObjectOwnership(root, QQmlEngine::CppOwnership);
+    // ApplicationWindow.font is the base font for every Control in the
+    // scene; setting it here mirrors the board's default font. Plain
+    // Window roots have no font property and silently keep the app font.
+    root->setProperty("font", QVariant::fromValue(sceneFont()));
     return qobject_cast<QQuickWindow *>(root);
 }
 
@@ -394,6 +425,7 @@ void QmlPane::buildUi()
     m_quick = new QQuickWidget(m_engine, this);
     m_quick->setResizeMode(QQuickWidget::SizeRootObjectToView);
     m_quick->setClearColor(Qt::white);
+    m_quick->setFont(sceneFont());
     m_quick->setFixedSize(m_w, m_h);
     m_quick->hide();
     connect(m_quick, &QQuickWidget::statusChanged, this, [this](QQuickWidget::Status st) {
@@ -492,6 +524,7 @@ void QmlPane::rebuildPreview(const QUrl &url)
     auto *qw = new QQuickWidget(m_engine, nullptr);
     qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
     qw->setClearColor(Qt::white);
+    qw->setFont(sceneFont());
     connect(qw, &QQuickWidget::statusChanged, this, [this, qw](QQuickWidget::Status st) {
         if (st == QQuickWidget::Error)
             for (const auto &err : qw->errors())
