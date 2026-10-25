@@ -1,0 +1,8 @@
+build/
+.git/
+docs/
+examples/
+gg
+icon.png
+screen.png
+*.user

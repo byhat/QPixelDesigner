@@ -412,7 +412,7 @@ void QmlPane::buildUi()
     lay->addWidget(varsBox);
 
     m_engine = new QQmlEngine(this);
-    m_vars = QQmlPropertyMap::create(this); // plain ctor lacks QML integration
+    m_vars = new QQmlPropertyMap(this); // plain ctor lacks QML integration
     m_engine->rootContext()->setContextProperty(QStringLiteral("backend"), m_vars);
     m_interceptor = new QrcUrlInterceptor;
     m_engine->addUrlInterceptor(m_interceptor);
@@ -857,7 +857,7 @@ void QmlPane::applyVars(const QVariantMap &vars)
     // object cannot serve as the source of truth. The map is rebuilt from
     // scratch on every change and m_varsContent keeps the exact contents.
     m_varsContent = vars;
-    auto *fresh = QQmlPropertyMap::create(this);
+    auto *fresh = new QQmlPropertyMap(this);
     for (auto it = vars.cbegin(); it != vars.cend(); ++it)
         fresh->insert(it.key(), it.value());
     m_engine->rootContext()->setContextProperty(QStringLiteral("backend"), fresh);
