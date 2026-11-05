@@ -412,7 +412,12 @@ void QmlPane::buildUi()
     lay->addWidget(varsBox);
 
     m_engine = new QQmlEngine(this);
-    m_vars = new QQmlPropertyMap(this); // plain ctor lacks QML integration
+#if QT_VERSION >= QT_VERSION_CHECK(6, 11, 0)
+    // the plain constructor loses QML change notifications since 6.11
+    m_vars = QQmlPropertyMap::create(this);
+#else
+    m_vars = new QQmlPropertyMap(this);
+#endif
     m_engine->rootContext()->setContextProperty(QStringLiteral("backend"), m_vars);
     m_interceptor = new QrcUrlInterceptor;
     m_engine->addUrlInterceptor(m_interceptor);
@@ -758,11 +763,6 @@ bool QmlPane::saveFile(int tabIndex)
     if (!editor || relPath.isEmpty())
         return false;
 
-    if (!editor->document()->isModified()) {
-        m_tabs->setTabText(tabIndex, QFileInfo(relPath).fileName());
-        return true;
-    }
-
     QFile f(QDir(m_dir).filePath(relPath));
     if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
         return false;
@@ -857,7 +857,11 @@ void QmlPane::applyVars(const QVariantMap &vars)
     // object cannot serve as the source of truth. The map is rebuilt from
     // scratch on every change and m_varsContent keeps the exact contents.
     m_varsContent = vars;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 11, 0)
+    auto *fresh = QQmlPropertyMap::create(this);
+#else
     auto *fresh = new QQmlPropertyMap(this);
+#endif
     for (auto it = vars.cbegin(); it != vars.cend(); ++it)
         fresh->insert(it.key(), it.value());
     m_engine->rootContext()->setContextProperty(QStringLiteral("backend"), fresh);
@@ -904,14 +908,22 @@ void QmlPane::reloadNow()
 
     m_log->clear();
     scanQrc();
-    m_engine->clearComponentCache();
     const QUrl url = QUrl::fromLocalFile(QDir(m_dir).filePath(m_entry));
+
+    // Clearing the component cache first is a no-op for compiled types that
+    // are still referenced by live objects: the engine would keep serving
+    // the old structure and structural edits (e.g. a deleted element) would
+    // never show up. Tear every live instance down before the clear.
+    delete m_hiddenRoot;
+    m_hiddenRoot = nullptr;
+    m_hiddenWindow = nullptr;
+    delete m_previewWindow;
+    m_previewWindow = nullptr;
+    m_quick->setSource(QUrl());
+    m_engine->clearComponentCache();
 
     // скрытый рендерер 1:1: ApplicationWindow -> собственное скрытое окно,
     // Item -> скрытый QQuickWidget
-    delete m_hiddenRoot;
-    m_hiddenWindow = nullptr;
-    m_quick->setSource(QUrl());
     QQmlComponent probe(m_engine, url);
     if (probe.isError()) {
         for (const auto &e : probe.errors())
