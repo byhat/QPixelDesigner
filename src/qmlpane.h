@@ -49,6 +49,7 @@ public:
 
     void setScreenSize(int width, int height);
     void setActive(bool active); ///< run/pause frame capture for this pane
+    void shutdown(); ///< stop timers and destroy scene objects before app exit
 
     bool openProjectDir(const QString &dir, const QString &entry = QString());
     void loadDemoProject(); ///< two-file demo scene in a temporary directory

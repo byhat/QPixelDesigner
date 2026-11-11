@@ -92,6 +92,7 @@ private:
     void syncCounters();    ///< element-name counters, derived from name suffixes
     void setColorButton(QPushButton *button, const QColor &color);
     void fitQmlPreview(); ///< stretch the live QML preview to the tab viewport
+    void fitQmlPixels();  ///< zoom the pixel QML canvas to fit without scrolling
     void moveLayerStep(int dir); ///< move layer up for dir > 0, down for dir < 0
     std::vector<int> selSorted() const;  ///< selected indices, ascending
     int maxGroupId() const;
@@ -111,6 +112,7 @@ private:
 
     ScreenCanvas *m_canvas = nullptr;     ///< layout editing canvas
     ScreenCanvas *m_qmlCanvas = nullptr;  ///< raster QML frames with the pixel grid
+    QScrollArea *m_qmlPixelsScroll = nullptr; ///< scroll host of the pixel QML canvas
     QStackedWidget *m_stack = nullptr;    ///< layout editor / pixel QML view (Layout tab)
     QScrollArea *m_qmlScroll = nullptr;   ///< host of the live QML preview widget
     QTabWidget *m_centralTabs = nullptr;  ///< "Layout" and "QML screen" tabs

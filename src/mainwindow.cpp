@@ -70,14 +70,19 @@ void MainWindow::buildUi()
     m_qmlCanvas = new ScreenCanvas; // raster QML frames with the pixel grid
     m_qmlCanvas->setScreenSize(m_screenW, m_screenH);
     m_qmlCanvas->resize(m_qmlCanvas->sizeHint());
-    auto *qmlPixelsScroll = new QScrollArea;
-    qmlPixelsScroll->setWidget(m_qmlCanvas);
-    qmlPixelsScroll->setWidgetResizable(false);
-    qmlPixelsScroll->setAlignment(Qt::AlignCenter);
+    m_qmlPixelsScroll = new QScrollArea;
+    m_qmlPixelsScroll->setWidget(m_qmlCanvas);
+    m_qmlPixelsScroll->setWidgetResizable(false);
+    m_qmlPixelsScroll->setAlignment(Qt::AlignCenter);
+    // this view must always show the whole screen: scrollbars staying off
+    // also keeps the viewport size stable for the fit calculation
+    m_qmlPixelsScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_qmlPixelsScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_qmlPixelsScroll->viewport()->installEventFilter(this);
 
     m_stack = new QStackedWidget;
     m_stack->addWidget(scroll);           // page 0: layout editor
-    m_stack->addWidget(qmlPixelsScroll);  // page 1: pixel-true QML view
+    m_stack->addWidget(m_qmlPixelsScroll);  // page 1: pixel-true QML view
 
     m_qmlScroll = new QScrollArea;
     m_qmlScroll->setWidgetResizable(false);
@@ -922,6 +927,7 @@ void MainWindow::setQmlMode(bool on)
     // переход в режим заменяет центральное превью на QML-превью
     m_centralTabs->setCurrentIndex(on ? 1 : 0);
     QTimer::singleShot(0, this, &MainWindow::fitQmlPreview);
+    QTimer::singleShot(0, this, &MainWindow::fitQmlPixels);
 }
 
 void MainWindow::onQmlFrame(const QImage &frame)
@@ -939,6 +945,8 @@ void MainWindow::onPreviewTabChanged(int index)
 {
     if (index == 1)
         QTimer::singleShot(0, this, &MainWindow::fitQmlPreview);
+    else if (m_qmlMode)
+        QTimer::singleShot(0, this, &MainWindow::fitQmlPixels);
     if (m_qmlMode)
         m_lastRender = m_qmlFrame;
     else
@@ -969,6 +977,7 @@ void MainWindow::applyScreenSize(int width, int height)
     m_qmlCanvas->setScreenSize(width, height);
     m_qmlPane->setScreenSize(width, height);
     QTimer::singleShot(0, this, &MainWindow::fitQmlPreview);
+    QTimer::singleShot(0, this, &MainWindow::fitQmlPixels);
     m_sizeLabel->setText(tr("Screen: %1x%2 px").arg(m_screenW).arg(m_screenH));
     syncPresetCombo();
 }
@@ -1019,10 +1028,26 @@ void MainWindow::setZoom(int zoom)
     zoom = qBound(1, zoom, 24);
     if (zoom != m_canvas->zoom())
         m_canvas->setZoom(zoom);
-    if (zoom != m_qmlCanvas->zoom())
-        m_qmlCanvas->setZoom(zoom);
     if (m_zoomSpin->value() != zoom)
         m_zoomSpin->setValue(zoom);
+}
+
+void MainWindow::fitQmlPixels()
+{
+    if (!m_qmlCanvas)
+        return;
+    const QSize vp = m_qmlPixelsScroll->viewport()->size();
+    if (vp.isEmpty())
+        return;
+    // integer zoom only: the pixel grid must stay aligned with screen pixels;
+    // the canvas margin (24 px each side) is subtracted from the available space
+    const int availW = vp.width() - 48;
+    const int availH = vp.height() - 48;
+    if (availW < m_screenW || availH < m_screenH)
+        return; // screen itself is larger than the viewport at 1x
+    const int fit = qMin(availW / m_screenW, availH / m_screenH);
+    if (fit != m_qmlCanvas->zoom())
+        m_qmlCanvas->setZoom(qBound(1, fit, 24));
 }
 
 void MainWindow::fitQmlPreview()
@@ -1039,8 +1064,12 @@ void MainWindow::fitQmlPreview()
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
-    if (watched == m_qmlScroll->viewport() && event->type() == QEvent::Resize)
-        fitQmlPreview();
+    if (event->type() == QEvent::Resize) {
+        if (watched == m_qmlScroll->viewport())
+            fitQmlPreview();
+        else if (watched == m_qmlPixelsScroll->viewport())
+            fitQmlPixels();
+    }
     return QMainWindow::eventFilter(watched, event);
 }
 
@@ -1376,8 +1405,10 @@ bool MainWindow::maybeSave()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    if (maybeSave())
-        event->accept();
-    else
+    if (!maybeSave()) {
         event->ignore();
+        return;
+    }
+    m_qmlPane->shutdown();
+    event->accept();
 }

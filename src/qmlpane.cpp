@@ -539,6 +539,26 @@ void QmlPane::rebuildPreview(const QUrl &url)
     lay->addWidget(qw);
 }
 
+// The QQml type loader thread can deadlock with the GUI thread if the
+// application exits while scenes are alive; everything QML is torn down
+// synchronously before the event loop stops.
+void QmlPane::shutdown()
+{
+    m_grabTimer.stop();
+    m_debounce.stop();
+    delete m_hiddenRoot;
+    m_hiddenRoot = nullptr;
+    m_hiddenWindow = nullptr;
+    delete m_previewWindow;
+    m_previewWindow = nullptr;
+    m_previewView = nullptr;
+    if (m_previewHost && m_previewHost->layout()) {
+        while (m_previewHost->layout()->count())
+            delete m_previewHost->layout()->takeAt(0)->widget();
+    }
+    m_quick->setSource(QUrl());
+}
+
 void QmlPane::setActive(bool active)
 {
     if (active)
