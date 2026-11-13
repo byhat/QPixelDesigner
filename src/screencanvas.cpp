@@ -169,16 +169,23 @@ void ScreenCanvas::paintEvent(QPaintEvent *)
     p.setBrush(Qt::NoBrush);
     p.drawRect(sr.adjusted(-1, -1, 1, 1));
 
-    if (m_showGrid && m_zoom >= 4) {
+    if (m_showGrid) {
+        // minor 1px grid only when readable; major 8px lines at any zoom,
+        // so the grid stays visible on low fit zooms (big screens)
+        const bool minor = m_zoom >= 4;
         for (int x = 1; x < m_screenW; ++x) {
             const bool major = (x % 8 == 0);
-            p.setPen(major ? QColor(255, 255, 255, 55) : QColor(0, 0, 0, 45));
+            if (!minor && !major)
+                continue;
+            p.setPen(major ? QColor(0, 0, 0, 110) : QColor(0, 0, 0, 45));
             const int px = sr.left() + x * m_zoom;
             p.drawLine(px, sr.top(), px, sr.bottom() - 1);
         }
         for (int y = 1; y < m_screenH; ++y) {
             const bool major = (y % 8 == 0);
-            p.setPen(major ? QColor(255, 255, 255, 55) : QColor(0, 0, 0, 45));
+            if (!minor && !major)
+                continue;
+            p.setPen(major ? QColor(0, 0, 0, 110) : QColor(0, 0, 0, 45));
             const int py = sr.top() + y * m_zoom;
             p.drawLine(sr.left(), py, sr.right() - 1, py);
         }
